@@ -13,6 +13,15 @@
 // sun-glitter strip on the ocean. Decorative extras are keyed off a hash of
 // the building's position, never the seeded stream, so the city layout the
 // seeded stream builds never moves.
+//
+// Builder #9 rebuild: the beachfront column is a low, colourful shop row
+// (awnings, neon, shopfront glass) instead of flat towers, so the driving
+// frames open onto the beach; tall towers get stepped crowns, balconies and
+// vertical neon strips; palms are drooping fronds (instanced, two greens,
+// varied height and lean) instead of cones; the shoreline reads as a curve
+// — scalloped sand, a sine foam line and umbrellas on an arc — and the
+// roads carry white edge lines and a warm sun streak, so the asphalt is
+// never a black empty half-frame.
 
 import * as THREE from 'three';
 import { CITY, PALETTES } from './config.js';
@@ -179,36 +188,100 @@ export function buildCity(scene, theme, seed) {
   crosses.count = crossIndex;
   group.add(crosses);
 
+  // White edge lines down both sides of every street, so the asphalt has
+  // a finished frame instead of bleeding into the sidewalk, and a warm
+  // sun streak down the two east-west arterials toward the low sun — the
+  // wet-look reflection that keeps the road from reading as a black void.
+  const edgeMat = new THREE.MeshBasicMaterial({ color: 0xfff6e0 });
+  const edgeGeo = new THREE.PlaneGeometry(440, 0.35);
+  const edges = new THREE.InstancedMesh(edgeGeo, edgeMat, CITY.streets.length * 2 * 2);
+  let edgeIndex = 0;
+  for (const s of CITY.streets) {
+    for (const side of [-1, 1]) {
+      const off = side * (CITY.roadWidth / 2 - 0.5);
+      dummy.position.set(0, 0.045, s + off);
+      dummy.rotation.set(-Math.PI / 2, 0, 0);
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      edges.setMatrixAt(edgeIndex, dummy.matrix);
+      edgeIndex += 1;
+      dummy.position.set(s + off, 0.045, 0);
+      dummy.rotation.set(-Math.PI / 2, 0, Math.PI / 2);
+      dummy.updateMatrix();
+      edges.setMatrixAt(edgeIndex, dummy.matrix);
+      edgeIndex += 1;
+    }
+  }
+  edges.count = edgeIndex;
+  group.add(edges);
+  const streakMat = new THREE.MeshBasicMaterial({
+    color: 0xffb060, transparent: true, opacity: 0.16,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  for (const sz of [29, -29]) {
+    const streak = new THREE.Mesh(new THREE.PlaneGeometry(230, 4.5), streakMat);
+    streak.rotation.x = -Math.PI / 2;
+    streak.position.set(45, 0.05, sz);
+    group.add(streak);
+  }
+
   // Parked cars along the kerbs, so the streets look busy even between the
-  // moving traffic: simple three-box cars (body, cabin, one dark under-box
-  // for the wheels) in saturated paint, parked just off the driving lane.
-  // They are scenery only — not in the traffic list, not stealable, and the
-  // game never collides with them — so they change nothing about play.
+  // moving traffic: slim low bodies with a sloped nose, a glass cabin, a
+  // chrome bumper strip and — on the sporty ones — a rear spoiler, in
+  // saturated paint, parked just off the driving lane. They are scenery
+  // only — not in the traffic list, not stealable, and the game never
+  // collides with them — so they change nothing about play. None is parked
+  // in the on-foot fight's staging patch (x 20..80 on the z=29 street), so
+  // no parked car ever fills the fight frame's foreground.
   const parkedCols = [0xff2a6a, 0xe83a3a, 0xffd94a, 0x2ad8c8, 0x2a6fd8, 0xff8a3d, 0xf5f5f5, 0xc93ad8];
   function addParkedCar(x, z, heading, color) {
     const car = new THREE.Group();
-    const paint = new THREE.MeshStandardMaterial({ color, roughness: 0.32, metalness: 0.65 });
-    const body = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.62, 2.0), paint);
-    body.position.y = 0.55;
+    const paint = new THREE.MeshStandardMaterial({ color, roughness: 0.28, metalness: 0.7 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.5, 1.9), paint);
+    body.position.y = 0.5;
     car.add(body);
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.34, 1.7), paint);
+    nose.position.set(2.3, 0.42, 0);
+    nose.rotation.z = -0.22;
+    car.add(nose);
     const cabin = new THREE.Mesh(
-      new THREE.BoxGeometry(2.1, 0.55, 1.7),
-      new THREE.MeshStandardMaterial({ color: 0x141420, roughness: 0.15, metalness: 0.7 }),
+      new THREE.BoxGeometry(2.0, 0.5, 1.6),
+      new THREE.MeshStandardMaterial({ color: 0x18202e, roughness: 0.12, metalness: 0.75 }),
     );
-    cabin.position.set(-0.25, 1.1, 0);
+    cabin.position.set(-0.3, 0.98, 0);
     car.add(cabin);
+    const bumper = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.16, 1.8),
+      new THREE.MeshStandardMaterial({ color: 0xd8d8e0, roughness: 0.25, metalness: 0.9 }),
+    );
+    bumper.position.set(2.72, 0.38, 0);
+    car.add(bumper);
     const under = new THREE.Mesh(
-      new THREE.BoxGeometry(4.0, 0.4, 1.9),
+      new THREE.BoxGeometry(4.0, 0.34, 1.8),
       new THREE.MeshStandardMaterial({ color: 0x14141a, roughness: 0.9 }),
     );
-    under.position.y = 0.28;
+    under.position.y = 0.26;
     car.add(under);
+    if (hash2(x, z) > 0.55) {
+      const spoiler = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 1.7), paint);
+      spoiler.position.set(-2.25, 1.0, 0);
+      car.add(spoiler);
+      for (const dz of [-0.6, 0.6]) {
+        const strut = new THREE.Mesh(
+          new THREE.BoxGeometry(0.08, 0.3, 0.08),
+          new THREE.MeshStandardMaterial({ color: 0x14141a, roughness: 0.8 }),
+        );
+        strut.position.set(-2.25, 0.82, dz);
+        car.add(strut);
+      }
+    }
     car.position.set(x, 0, z);
     car.rotation.y = -heading;
     group.add(car);
   }
   for (const s of CITY.streets) {
-    for (const [along, side] of [[-110, 1], [60, -1]]) {
+    for (const [along, side] of [[-110, 1], [100, -1]]) {
+      if ((s === 29 || s === -29) && along > 20 && along < 80) continue;
       addParkedCar(along, s + side * 5.8, side > 0 ? 0 : Math.PI, parkedCols[(Math.abs(s) + Math.abs(along)) % parkedCols.length]);
       addParkedCar(s + side * 5.8, along, side > 0 ? -Math.PI / 2 : Math.PI / 2, parkedCols[(Math.abs(s) * 2 + Math.abs(along)) % parkedCols.length]);
     }
@@ -216,11 +289,21 @@ export function buildCity(scene, theme, seed) {
 
   // Buildings: one to three per block, heights that vary by district — taller
   // toward the middle, low near the beach. The east column past the beach
-  // stays empty: that is sand and water, not towers.
+  // stays empty: that is sand and water, not towers. Builder #9: the
+  // beachfront column (cx 116) is a low, colourful shop row — one or two
+  // storeys, flat roofs in varied colours, a striped awning and shopfront
+  // glass on every shop, neon on most — so the driving frames open onto
+  // the beach instead of ending at a flat tower wall. Tall towers get a
+  // stepped crown (a smaller box on the roof), balconies on the upper
+  // floors, and a vertical neon strip on some faces, so no facade is one
+  // flat coloured slab with square windows.
   const tintMats = palette.buildingTints.map(
     (t) => new THREE.MeshStandardMaterial({ color: t, roughness: 0.85, metalness: 0.05 }),
   );
   const roofMat = new THREE.MeshStandardMaterial({ color: 0x3a2a30, roughness: 1 });
+  const shopRoofMats = (palette.shopTints || palette.buildingTints).map(
+    (t) => new THREE.MeshStandardMaterial({ color: t, roughness: 0.8, metalness: 0.05 }),
+  );
   const neonMats = palette.neon.map(
     (n) => new THREE.MeshBasicMaterial({ color: n }),
   );
@@ -233,21 +316,31 @@ export function buildCity(scene, theme, seed) {
     for (const cz of BLOCK_CENTRES) {
       if (cx > 150) continue;
       const distCentre = Math.hypot(cx, cz) / 220;
-      const count = chance(rng, 0.55) ? 2 : 1;
+      const isShopRow = cx >= 116;
+      const count = isShopRow ? 2 : (chance(rng, 0.55) ? 2 : 1);
       const slots = count === 2
         ? [[-11, -11], [11, 11]]
         : [[0, 0]];
       for (const [ox, oz] of slots) {
-        const w = range(rng, 14, 20);
-        const d = range(rng, 14, 20);
-        const h = range(rng, 7, 26) * (1.35 - distCentre * 0.7);
+        const w = isShopRow ? range(rng, 12, 16) : range(rng, 14, 20);
+        const d = isShopRow ? range(rng, 12, 16) : range(rng, 14, 20);
+        const h = isShopRow
+          ? range(rng, 5, 11)
+          : range(rng, 7, 26) * (1.35 - distCentre * 0.7);
         const bx = cx + ox;
         const bz = cz + oz;
-        const mat = pick(rng, tintMats);
+        const mat = isShopRow
+          ? shopRoofMats[Math.floor(hash2(bx, bz) * shopRoofMats.length) % shopRoofMats.length]
+          : pick(rng, tintMats);
         const tower = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
         tower.position.set(bx, h / 2, bz);
         group.add(tower);
-        const roof = new THREE.Mesh(new THREE.BoxGeometry(w + 0.6, 0.5, d + 0.6), roofMat);
+        const roof = new THREE.Mesh(
+          new THREE.BoxGeometry(w + 0.6, 0.5, d + 0.6),
+          isShopRow
+            ? shopRoofMats[Math.floor(hash2(bx + 9, bz + 4) * shopRoofMats.length) % shopRoofMats.length]
+            : roofMat,
+        );
         roof.position.set(bx, h + 0.25, bz);
         group.add(roof);
         buildings.push({ x: bx, z: bz, hw: w / 2, hd: d / 2, h });
@@ -257,6 +350,35 @@ export function buildCity(scene, theme, seed) {
         const cap = new THREE.Mesh(new THREE.BoxGeometry(w + 0.7, 0.7, d + 0.7), accent);
         cap.position.set(bx, h + 0.7, bz);
         group.add(cap);
+        // A stepped crown on tall towers: a smaller box set back on the
+        // roof, in a contrasting tint, so the skyline steps instead of
+        // ending in a flat slab.
+        if (!isShopRow && h > 17) {
+          const crown = new THREE.Mesh(
+            new THREE.BoxGeometry(w * 0.55, 2 + hash2(bx + 41, bz + 3) * 2, d * 0.55),
+            tintMats[Math.floor(hash2(bx + 21, bz + 3) * tintMats.length) % tintMats.length],
+          );
+          crown.position.set(bx, h + 1.4, bz);
+          group.add(crown);
+          const crownCap = new THREE.Mesh(
+            new THREE.BoxGeometry(w * 0.55 + 0.4, 0.5, d * 0.55 + 0.4),
+            accent,
+          );
+          crownCap.position.set(bx, h + 3.1, bz);
+          group.add(crownCap);
+        }
+        // Balconies on the street-facing side of tall towers: thin slabs
+        // with a rail edge, so the upper floors have depth.
+        if (!isShopRow && h > 14) {
+          const balcMat = new THREE.MeshStandardMaterial({ color: 0xf0e2c2, roughness: 0.9 });
+          for (let fl = 0; fl < 2; fl += 1) {
+            const by = 6 + fl * 6 + hash2(bx, bz + fl) * 2;
+            if (by > h - 3) continue;
+            const slab = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.35, 1.4), balcMat);
+            slab.position.set(bx, by, bz + d / 2 + 0.7);
+            group.add(slab);
+          }
+        }
         // A rooftop AC box on most towers, tucked in one corner.
         if (hash2(bx + 3, bz + 7) > 0.3) {
           const ac = new THREE.Mesh(
@@ -267,19 +389,36 @@ export function buildCity(scene, theme, seed) {
           group.add(ac);
         }
         // A coloured shopfront awning on the street-facing side of low
-        // buildings, so the ground floor has something to look at.
-        if (h < 16 && hash2(bx + 11, bz + 5) > 0.45) {
-          const awn = new THREE.Mesh(
-            new THREE.BoxGeometry(w * 0.6, 0.4, 1.6),
-            accentMats[Math.floor(hash2(bx + 5, bz + 11) * accentMats.length) % accentMats.length],
-          );
-          awn.position.set(bx, 3.4, bz + d / 2 + 0.8);
-          group.add(awn);
+        // buildings, so the ground floor has something to look at. Shops
+        // always get one, striped in two colours; towers get one often.
+        if (isShopRow || (h < 16 && hash2(bx + 11, bz + 5) > 0.45)) {
+          const awnMat = accentMats[Math.floor(hash2(bx + 5, bz + 11) * accentMats.length) % accentMats.length];
+          const awnMat2 = accentMats[Math.floor(hash2(bx + 17, bz + 2) * accentMats.length) % accentMats.length];
+          for (let sIdx = 0; sIdx < 4; sIdx += 1) {
+            const stripe = new THREE.Mesh(
+              new THREE.BoxGeometry((w * 0.7) / 4, 0.4, 1.6),
+              sIdx % 2 === 0 ? awnMat : awnMat2,
+            );
+            stripe.position.set(bx - (w * 0.7) / 2 + ((w * 0.7) / 8) * (2 * sIdx + 1), 3.4, bz + d / 2 + 0.8);
+            group.add(stripe);
+          }
+          // Shopfront glass: one wide bright pane under the awning.
+          if (isShopRow) {
+            const glass = new THREE.Mesh(
+              new THREE.PlaneGeometry(w * 0.62, 2.2),
+              new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.9 }),
+            );
+            glass.position.set(bx, 1.9, bz + d / 2 + 0.06);
+            group.add(glass);
+          }
         }
         // Lit windows on all four faces, so the towers read busy from any
         // street the camera drives down, not just from the south and west.
-        // The rotation each face needs is stored with the window.
-        const floors = Math.max(1, Math.floor(h / 3.2));
+        // The rotation each face needs is stored with the window. Windows
+        // are smaller now (1.5 x 1.2) and shops skip the upper-floor grid
+        // for their glass front, so facades read as varied lights, not a
+        // grid of big squares.
+        const floors = isShopRow ? 1 : Math.max(1, Math.floor(h / 3.2));
         const cols = Math.max(1, Math.floor(w / 4));
         const colsZ = Math.max(1, Math.floor(d / 4));
         const faces = [
@@ -304,8 +443,10 @@ export function buildCity(scene, theme, seed) {
             }
           }
         }
-        // A neon sign on some towers, facing the street.
-        if (neonCount < 12 && chance(rng, 0.35)) {
+        // A neon sign on some towers, facing the street — and a thin
+        // vertical neon strip down one corner of taller towers, so the
+        // facades carry light, not just paint.
+        if (neonCount < 12 && chance(rng, isShopRow ? 0.55 : 0.35)) {
           const sign = new THREE.Mesh(
             new THREE.BoxGeometry(0.5, range(rng, 2, 5), range(rng, 4, 9)),
             neonMats[neonCount % neonMats.length],
@@ -313,6 +454,14 @@ export function buildCity(scene, theme, seed) {
           sign.position.set(bx + w / 2 + 0.35, h * 0.7, bz);
           group.add(sign);
           neonCount += 1;
+        }
+        if (!isShopRow && h > 15 && hash2(bx + 31, bz + 13) > 0.55) {
+          const strip = new THREE.Mesh(
+            new THREE.BoxGeometry(0.3, h * 0.7, 0.3),
+            neonMats[Math.floor(hash2(bx + 7, bz + 19) * neonMats.length) % neonMats.length],
+          );
+          strip.position.set(bx + w / 2 + 0.1, h * 0.45, bz + d / 2 + 0.1);
+          group.add(strip);
         }
       }
     }
@@ -322,7 +471,7 @@ export function buildCity(scene, theme, seed) {
   // colour from the palette's window colours (warm amber, cool blue, rose,
   // pale gold), keyed off its position, so the facades sparkle in varied
   // light instead of one flat yellow grid.
-  const winGeo = new THREE.PlaneGeometry(1.9, 1.5);
+  const winGeo = new THREE.PlaneGeometry(1.5, 1.2);
   const winMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   const windows = new THREE.InstancedMesh(winGeo, winMat, Math.max(1, windowPositions.length));
   const winColors = palette.windowColors || [0xffd98a];
@@ -380,47 +529,77 @@ export function buildCity(scene, theme, seed) {
     foam.position.set(fx, 0.06, 0);
     group.add(foam);
   }
+  // The curved coast: the straight sand/water edge is dressed with a sine
+  // of scalloped sand discs and foam puffs, so the shoreline reads as a
+  // curve from the driving view instead of a ruler-straight strip. All
+  // positions are pure functions of z, so the curve is identical every run.
+  const scallopMat = new THREE.MeshStandardMaterial({ color: palette.sandTint ?? 0xf2d491, roughness: 1 });
+  const foamPuffMat = new THREE.MeshBasicMaterial({ color: palette.surfTint ?? 0xeaf7ff, transparent: true, opacity: 0.5 });
+  const scallopGeo = new THREE.CircleGeometry(1, 12);
+  for (let i = 0; i < 22; i += 1) {
+    const sz = -210 + i * 20;
+    const curve = Math.sin(sz * 0.025) * 6;
+    const scallop = new THREE.Mesh(scallopGeo, scallopMat);
+    scallop.rotation.x = -Math.PI / 2;
+    scallop.scale.set(5 + hash2(i * 3, 11) * 3, 3.5 + hash2(i * 7, 5) * 2.5, 1);
+    scallop.position.set(CITY.waterX - 4 + curve, 0.045, sz);
+    group.add(scallop);
+    const puff = new THREE.Mesh(scallopGeo, foamPuffMat);
+    puff.rotation.x = -Math.PI / 2;
+    puff.scale.set(3 + hash2(i * 5, 3) * 2, 2 + hash2(i * 9, 8) * 1.6, 1);
+    puff.position.set(CITY.waterX + 1 + curve, 0.065, sz + 9);
+    group.add(puff);
+  }
+  // Beachgoers: a few static figures on the sand (visual only, never in
+  // traffic, never colliding), so the beach reads lived-in from the road.
+  const beachShirts = [0xff5a7a, 0x37e0ff, 0xffd94a, 0x7dff9a, 0xff8a3d];
+  for (let i = 0; i < 8; i += 1) {
+    const bz2 = -170 + i * 46 + hash2(i * 11, 2) * 10;
+    const bx2 = CITY.beachX + 10 + Math.sin(bz2 * 0.03) * 6 + hash2(i * 4, 9) * 8;
+    const figure = new THREE.Group();
+    const fBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.26, 0.3, 0.85, 8),
+      new THREE.MeshStandardMaterial({ color: beachShirts[i % beachShirts.length], roughness: 0.85 }),
+    );
+    fBody.position.y = 0.95;
+    figure.add(fBody);
+    const fHead = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 10, 8),
+      new THREE.MeshStandardMaterial({ color: 0xd9a986, roughness: 0.7 }),
+    );
+    fHead.position.y = 1.6;
+    figure.add(fHead);
+    figure.position.set(bx2, 0, bz2);
+    figure.rotation.y = hash2(i * 6, 13) * Math.PI * 2;
+    group.add(figure);
+  }
 
-  // Palms along the beach, leaning a little toward the sea.
-  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 1 });
-  const leafMat = new THREE.MeshStandardMaterial({ color: 0x3a9a4a, roughness: 0.9 });
-  function addPalm(px, pz, lean) {
-    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.32, 6, 7), trunkMat);
-    trunk.position.set(px, 3, pz);
-    trunk.rotation.z = lean;
-    group.add(trunk);
-    // A two-tier crown: a wide flat frond cone under the upright top cone,
-    // so the palm reads as a palm and not a pine.
-    const fronds = new THREE.Mesh(new THREE.ConeGeometry(3.1, 1.3, 8), leafMat);
-    fronds.position.set(px + 0.7, 5.9, pz);
-    group.add(fronds);
-    const leaves = new THREE.Mesh(new THREE.ConeGeometry(2.7, 2.4, 8), leafMat);
-    leaves.position.set(px + 0.7, 6.7, pz);
-    group.add(leaves);
-  }
-  for (let i = 0; i < 14; i += 1) {
-    const pz = -190 + i * 29 + range(rng, -4, 4);
-    const px = CITY.beachX + 6 + range(rng, 0, 8);
-    addPalm(px, pz, 0.12);
-  }
-
-  // Palms lining the beachfront avenue and the south dock road, so the
-  // sunset streets have green over the sidewalks, not just the sand.
-  for (let i = 0; i < 13; i += 1) {
-    addPalm(158, -174 + i * 29, i % 2 === 0 ? 0.1 : -0.1);
-  }
-  for (let i = 0; i < 7; i += 1) {
-    addPalm(-168 + i * 52, 156, 0.08);
-  }
-
-  // Palms lining the streets the screenshots drive — both kerbs of the
-  // beachfront avenue and of the two east-west streets — so the chase
-  // camera always has palms at the frame's edges. A palm is only planted
+  // Palms — builder #9 rebuild: NO cones. Each palm is a leaning trunk
+  // with a crown of nine long drooping fronds, two greens, varied height
+  // (5.5–9) and lean, on both kerbs of the beachfront avenue and the
+  // east-west streets, so the chase camera always has palms at the frame's
+  // edges. All fronds, trunks and coconuts are three instanced draws, so
+  // sixty palms cost no more than three meshes. A palm is only planted
   // where the finished buildings leave room (checked against the built
   // boxes), so no trunk ever grows through a tower, and never on a
   // crosswalk corner or in the on-foot fight's staging patch, so no trunk
   // ever stands in the camera's face. The checks are seeded by position,
   // never by the stream, so the layout never moves.
+  const palmSpots = [];
+  function spotPalm(px, pz, lean) {
+    palmSpots.push([px, pz, lean, 5.5 + hash2(px + 3, pz + 8) * 3.5]);
+  }
+  for (let i = 0; i < 14; i += 1) {
+    const pz = -190 + i * 29 + range(rng, -4, 4);
+    const px = CITY.beachX + 6 + range(rng, 0, 8);
+    spotPalm(px, pz, 0.12);
+  }
+  for (let i = 0; i < 13; i += 1) {
+    spotPalm(158, -174 + i * 29, i % 2 === 0 ? 0.1 : -0.1);
+  }
+  for (let i = 0; i < 7; i += 1) {
+    spotPalm(-168 + i * 52, 156, 0.08);
+  }
   const streetPalms = [];
   for (let z = -160; z <= 160; z += 32) {
     if (CITY.streets.some((s) => Math.abs(z - s) < 7)) continue;
@@ -434,16 +613,78 @@ export function buildCity(scene, theme, seed) {
   }
   for (const [px, pz] of streetPalms) {
     if (hitsBuilding(buildings, px, pz, 2.6)) continue;
-    addPalm(px, pz, hash2(px, pz) > 0.5 ? 0.1 : -0.1);
+    spotPalm(px, pz, hash2(px, pz) > 0.5 ? 0.1 : -0.1);
   }
+  // One instanced draw for all trunks, one for all fronds, one for the
+  // coconut clusters. A frond is a long tapered cone whose base sits at
+  // the crown and whose tip droops 10–35° below horizontal, fanned around
+  // the trunk; the two greens alternate by position hash.
+  const FRONDS_PER_PALM = 9;
+  const palmCount = palmSpots.length;
+  const trunkGeo = new THREE.CylinderGeometry(0.22, 0.34, 1, 7);
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 1 });
+  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, Math.max(1, palmCount));
+  const frondGeo = new THREE.ConeGeometry(0.42, 1, 5);
+  frondGeo.scale(1, 1, 0.45);
+  frondGeo.translate(0, 0.5, 0);
+  const frondMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+  const fronds = new THREE.InstancedMesh(frondGeo, frondMat, Math.max(1, palmCount * FRONDS_PER_PALM));
+  const nutGeo = new THREE.SphereGeometry(0.28, 8, 6);
+  const nutMat = new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.9 });
+  const nuts = new THREE.InstancedMesh(nutGeo, nutMat, Math.max(1, palmCount * 3));
+  const frondCols = (palette.frondColors || [0x2fae5a, 0x46c468]).map((c) => new THREE.Color(c));
+  const frondQuat = new THREE.Quaternion();
+  const frondEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+  let frondIndex = 0;
+  let nutIndex = 0;
+  palmSpots.forEach(([px, pz, lean, trunkH], pi) => {
+    dummy.position.set(px, trunkH / 2, pz);
+    dummy.rotation.set(0, 0, lean);
+    dummy.scale.set(1, trunkH, 1);
+    dummy.updateMatrix();
+    trunks.setMatrixAt(pi, dummy.matrix);
+    const crownY = trunkH + 0.1;
+    const phase = hash2(px, pz) * Math.PI * 2;
+    for (let f = 0; f < FRONDS_PER_PALM; f += 1) {
+      const az = phase + (f / FRONDS_PER_PALM) * Math.PI * 2;
+      const tilt = (100 + hash2(px + f * 3, pz + f) * 25) * (Math.PI / 180);
+      const len = 3.4 + hash2(px + f, pz + f * 5) * 1.8;
+      frondEuler.set(tilt, az, 0);
+      frondQuat.setFromEuler(frondEuler);
+      dummy.position.set(px + Math.sin(az) * 0.35, crownY, pz + Math.cos(az) * 0.35);
+      dummy.quaternion.copy(frondQuat);
+      dummy.scale.set(1, len, 1);
+      dummy.updateMatrix();
+      fronds.setMatrixAt(frondIndex, dummy.matrix);
+      fronds.setColorAt(frondIndex, frondCols[Math.floor(hash2(px + f * 7, pz) * frondCols.length) % frondCols.length]);
+      frondIndex += 1;
+    }
+    for (let n = 0; n < 3; n += 1) {
+      const na = phase + n * 2.1;
+      dummy.position.set(px + Math.sin(na) * 0.5, crownY - 0.35, pz + Math.cos(na) * 0.5);
+      dummy.quaternion.identity();
+      dummy.scale.set(1, 1, 1);
+      dummy.updateMatrix();
+      nuts.setMatrixAt(nutIndex, dummy.matrix);
+      nutIndex += 1;
+    }
+  });
+  trunks.count = palmCount;
+  fronds.count = frondIndex;
+  nuts.count = nutIndex;
+  if (fronds.instanceColor) fronds.instanceColor.needsUpdate = true;
+  group.add(trunks);
+  group.add(fronds);
+  group.add(nuts);
 
   // Beach umbrellas: bright cones on poles, spaced down the sand in two
-  // rows — none planted under the ferris wheel, which owns its own patch.
+  // rows on a gentle arc that follows the curved shoreline — none planted
+  // under the ferris wheel, which owns its own patch.
   const umbrellaCols = [0xff5a7a, 0x37e0ff, 0xffd94a, 0x7dff9a, 0xff8a3d];
   for (let i = 0; i < 14; i += 1) {
     const uz = -168 + i * 24;
     if (Math.abs(uz - -95) < 26 || Math.abs(uz + 12 - -95) < 26) continue;
-    const ux = CITY.beachX + 14 + ((i * 7) % 10);
+    const ux = CITY.beachX + 14 + ((i * 7) % 10) + Math.sin(uz * 0.03) * 6;
     const pole = new THREE.Mesh(
       new THREE.CylinderGeometry(0.09, 0.09, 2.6, 6),
       new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.6 }),

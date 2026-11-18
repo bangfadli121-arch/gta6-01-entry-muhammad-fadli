@@ -298,6 +298,42 @@ export function createRenderer(canvas, theme, textures) {
     camera.lookAt(camState.lookX, camState.lookY, camState.lookZ);
   }
 
+  /**
+   * Builder #13 — the COVER camera (Halcyon-style): a low, close,
+   * slightly off-axis chase pose for the cover shot only. The camera sits
+   * 7.5 units behind the car and 4.2 to its left, so the pink sports car
+   * reads in three-quarter rear view and fills the bottom of the frame
+   * instead of shrinking to a speck dead-centre, while the look target
+   * (13 ahead, a touch right and up) keeps the ferris wheel and the
+   * FLAMINGO FM board in frame. Called once after staging; the frozen
+   * shot loop never calls updateCamera again, so this pose holds until
+   * the capture. Live play keeps updateCamera's own pose.
+   */
+  function setCoverCamera(player) {
+    const fx = Math.cos(player.heading);
+    const fz = Math.sin(player.heading);
+    // Right of the heading is (-sin h, cos h) in xz; the camera sits on
+    // the LEFT-rear quarter (lat negative), the look target a touch right.
+    const rx = -Math.sin(player.heading);
+    const rz = Math.cos(player.heading);
+    const dist = 6.5;
+    const lat = -4.8;
+    camera.position.set(
+      player.x - fx * dist + rx * lat,
+      3.3,
+      player.z - fz * dist + rz * lat,
+    );
+    camera.fov = 62;
+    camera.updateProjectionMatrix();
+    camera.lookAt(player.x + fx * 12, 3.2, player.z + fz * 12 + 1.5);
+    camState.x = camera.position.x;
+    camState.y = camera.position.y;
+    camState.z = camera.position.z;
+    camState.lookX = player.x + fx * 12;
+    camState.lookY = 3.2;
+    camState.lookZ = player.z + fz * 12 + 1.5;
+  }
+
   /** Place the camera for a low establishing view of the island (title
    * screen): just off the south shore, low over the ring boulevard,
    * looking north-east along the coast toward the ferris wheel, the
@@ -329,5 +365,5 @@ export function createRenderer(canvas, theme, textures) {
     renderer.render(scene, camera);
   }
 
-  return { scene, camera, renderer, updateCamera, setEstablishing, render, resize };
+  return { scene, camera, renderer, updateCamera, setCoverCamera, setEstablishing, render, resize };
 }

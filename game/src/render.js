@@ -36,15 +36,21 @@ function skylineSpots(count) {
       x: Math.cos(a) * r,
       z: Math.sin(a) * r,
       w: 18 + ((i * 29) % 22),
-      h: 26 + ((i * 61) % 55),
+      h: 20 + ((i * 37) % 35),
       d: 18 + ((i * 23) % 16),
     });
   }
   return spots;
 }
 
-export function createRenderer(canvas, theme) {
+export function createRenderer(canvas, theme, textures) {
   const palette = PALETTES[theme];
+  // The photographed sky (builder #10): a real golden-hour panorama from
+  // the GPU texture set, wrapped on the sky dome. Its own sun sits low on
+  // the horizon; the dome rotation puts that photographed sun north-east,
+  // over the ocean, under the game's sun disc, so the frame has one sun.
+  // Without the texture the procedural gradient sky below is the fallback.
+  const hasPhotoSky = !!(textures && textures.sky);
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
   // Filmic tone mapping: deeper contrast and livelier colour than the flat
@@ -78,38 +84,48 @@ export function createRenderer(canvas, theme) {
   const camera = new THREE.PerspectiveCamera(62, 1280 / 480, 0.1, 1200);
   camera.position.set(0, 8, -14);
 
-  // --- The sky: a gradient dome in four bands — violet dusk at the top,
-  // pink, then orange, then a pale-gold horizon — so the sky reads as
-  // layered sunset bands instead of one flat orange wash. A warm glow
-  // gathers around the sun's own direction (brightest low over the ocean),
-  // so the sky is brightest where the sun sits and the top of the frame
-  // stays light violet-pink, never a flat red slab. It sits behind
-  // everything (BackSide, depthWrite off, fog off) and never moves with
-  // the camera's chase.
-  const skyDome = new THREE.Mesh(
-    new THREE.SphereGeometry(800, 28, 18),
-    new THREE.ShaderMaterial({
-      side: THREE.BackSide,
-      depthWrite: false,
-      fog: false,
-      uniforms: {
-        top: { value: new THREE.Color(palette.skyTop ?? palette.sky) },
-        upper: { value: new THREE.Color(palette.skyUpper ?? palette.skyMid ?? palette.sky) },
-        mid: { value: new THREE.Color(palette.skyMid ?? palette.sky) },
-        bot: { value: new THREE.Color(palette.horizon ?? palette.sky) },
-        sunDir: { value: new THREE.Vector3(480, 26, 10).normalize() },
-      },
-      vertexShader: 'varying vec3 vP; void main() { vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'varying vec3 vP; uniform vec3 top; uniform vec3 upper; uniform vec3 mid; uniform vec3 bot; uniform vec3 sunDir;'
-        + 'void main() { float h = normalize(vP).y;'
-        + ' vec3 c = h > 0.42 ? mix(upper, top, smoothstep(0.42, 0.85, h))'
-        + ' : h > 0.10 ? mix(mid, upper, smoothstep(0.10, 0.30, h))'
-        + ' : mix(bot, mid, smoothstep(-0.06, 0.10, h));'
-        + ' float g = pow(max(dot(normalize(vP), sunDir), 0.0), 6.0);'
-        + ' c = mix(c, vec3(1.0, 0.85, 0.6), g * 0.55);'
-        + ' gl_FragColor = vec4(c, 1.0); }',
-    }),
-  );
+  // --- The sky: with the GPU texture, the dome wears the photographed
+  // golden-hour panorama (sun low over the ocean, pink-orange clouds, a
+  // turquoise sea along the horizon) instead of the procedural gradient
+  // bands — the horizon reads as real sea and sky from every camera. The
+  // procedural shader dome stays as the fallback when the texture failed
+  // to load: a violet-to-orange gradient sky dome in four bands, with a
+  // warm glow gathering around the sun's own direction.
+  let skyDome;
+  if (hasPhotoSky) {
+    skyDome = new THREE.Mesh(
+      new THREE.SphereGeometry(800, 28, 18),
+      new THREE.MeshBasicMaterial({
+        map: textures.sky, side: THREE.BackSide, depthWrite: false, fog: false,
+      }),
+    );
+    skyDome.rotation.y = palette.skyTextureRotationY ?? 0;
+  } else {
+    skyDome = new THREE.Mesh(
+      new THREE.SphereGeometry(800, 28, 18),
+      new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        depthWrite: false,
+        fog: false,
+        uniforms: {
+          top: { value: new THREE.Color(palette.skyTop ?? palette.sky) },
+          upper: { value: new THREE.Color(palette.skyUpper ?? palette.skyMid ?? palette.sky) },
+          mid: { value: new THREE.Color(palette.skyMid ?? palette.sky) },
+          bot: { value: new THREE.Color(palette.horizon ?? palette.sky) },
+          sunDir: { value: new THREE.Vector3(480, 26, 10).normalize() },
+        },
+        vertexShader: 'varying vec3 vP; void main() { vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: 'varying vec3 vP; uniform vec3 top; uniform vec3 upper; uniform vec3 mid; uniform vec3 bot; uniform vec3 sunDir;'
+          + 'void main() { float h = normalize(vP).y;'
+          + ' vec3 c = h > 0.42 ? mix(upper, top, smoothstep(0.42, 0.85, h))'
+          + ' : h > 0.10 ? mix(mid, upper, smoothstep(0.10, 0.30, h))'
+          + ' : mix(bot, mid, smoothstep(-0.06, 0.10, h));'
+          + ' float g = pow(max(dot(normalize(vP), sunDir), 0.0), 6.0);'
+          + ' c = mix(c, vec3(1.0, 0.85, 0.6), g * 0.55);'
+          + ' gl_FragColor = vec4(c, 1.0); }',
+      }),
+    );
+  }
   scene.add(skyDome);
 
   // --- The sun: a big low disc on the horizon with a soft halo behind it,
@@ -117,11 +133,19 @@ export function createRenderer(canvas, theme) {
   // so it does not swallow the sky. At sunset the disc sits due east over
   // the ocean (palette.sunDiscPosition), at the end of the east streets,
   // while the directional light stays north-west for the wall modelling.
+  // With the photographed sky the disc moves up into the clear strip left
+  // of the title card (palette.sunDiscPositionTextured), directly above
+  // the photographed sun's own glow on the horizon — one unmistakable sun
+  // in the title frame, instead of a disc hidden behind the card. It is
+  // also smaller and warmer there: the photograph already carries the
+  // sunset's glow, so a full-size pale disc would read as a second moon.
   const sunDiscPos = theme === 'sunset' && palette.sunDiscPosition
-    ? palette.sunDiscPosition
+    ? (hasPhotoSky && palette.sunDiscPositionTextured
+      ? palette.sunDiscPositionTextured
+      : palette.sunDiscPosition)
     : [palette.sunPosition[0] * 2.4, theme === 'sunset' ? 26 : 90, palette.sunPosition[2] * 2.4];
   const sunGlow = new THREE.Mesh(
-    new THREE.CircleGeometry(theme === 'sunset' ? 90 : 22, 28),
+    new THREE.CircleGeometry(theme === 'sunset' ? (hasPhotoSky ? 55 : 90) : 22, 28),
     new THREE.MeshBasicMaterial({
       color: theme === 'sunset' ? 0xff8a3d : 0x8a9ac8, fog: false,
       transparent: true, opacity: theme === 'sunset' ? 0.55 : 0.2, toneMapped: false,
@@ -131,8 +155,8 @@ export function createRenderer(canvas, theme) {
   sunGlow.lookAt(0, 10, 0);
   scene.add(sunGlow);
   const sunDisc = new THREE.Mesh(
-    new THREE.CircleGeometry(theme === 'sunset' ? 34 : 12, 24),
-    new THREE.MeshBasicMaterial({ color: theme === 'sunset' ? 0xfff8d0 : 0xdfe8ff, fog: false, toneMapped: false }),
+    new THREE.CircleGeometry(theme === 'sunset' ? (hasPhotoSky ? 22 : 34) : 12, 24),
+    new THREE.MeshBasicMaterial({ color: theme === 'sunset' ? (hasPhotoSky ? 0xffe9a0 : 0xfff8d0) : 0xdfe8ff, fog: false, toneMapped: false }),
   );
   sunDisc.position.set(sunDiscPos[0], sunDiscPos[1], sunDiscPos[2]);
   sunDisc.lookAt(0, 10, 0);
@@ -161,22 +185,22 @@ export function createRenderer(canvas, theme) {
       blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
     }));
     halo.position.set(sunDiscPos[0], sunDiscPos[1], sunDiscPos[2]);
-    halo.scale.set(300, 300, 1);
+    halo.scale.set(hasPhotoSky ? 180 : 300, hasPhotoSky ? 180 : 300, 1);
     scene.add(halo);
     const core = new THREE.Sprite(new THREE.SpriteMaterial({
       map: glowTex, color: 0xfff3c0, transparent: true, opacity: 0.85,
       blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
     }));
     core.position.set(sunDiscPos[0], sunDiscPos[1], sunDiscPos[2]);
-    core.scale.set(140, 140, 1);
+    core.scale.set(hasPhotoSky ? 90 : 140, hasPhotoSky ? 90 : 140, 1);
     scene.add(core);
   }
 
   // --- Clouds: flat pink-lit puffs high over the city, two or three lobes
-  // each, so the sky has shape instead of a smooth gradient alone. Lower
-  // and bigger than before, so they sit inside the chase camera's frame,
-  // plus long thin sunset streaks low in the east, catching the sun.
-  if (theme === 'sunset') {
+  // each, so the sky has shape instead of a smooth gradient alone. Only
+  // for the procedural sky — the photographed sky already carries its own
+  // dramatic clouds, and the painted puffs would double them.
+  if (theme === 'sunset' && !hasPhotoSky) {
     const cloudMat = new THREE.MeshBasicMaterial({
       color: palette.cloudTint, fog: false, transparent: true, opacity: 0.9,
     });

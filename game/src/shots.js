@@ -6,7 +6,7 @@
 // mission objective and the minimap all in one frame.
 import { STEP } from './config.js';
 import { ACTION_ENTER, ACTION_PUNCH } from './input.js';
-import { syncCarMesh } from './vehicles.js';
+import { createCarMesh, syncCarMesh } from './vehicles.js';
 
 const ZERO_AXES = { throttle: 0, steer: 0, brake: 0, handbrake: 0, run: 0 };
 
@@ -170,8 +170,66 @@ export function stageShot(name, game) {
     placePoliceAhead(game, [
       { dx: 11, dz: -5 }, { dx: 15, dz: 6 }, { dx: 20, dz: -1 },
     ]);
+    // Builder #15 — A BUSY STREET (fadli: jalanan Halcyon/Costa Solis
+    // penuh mobil, #14c cuma 3 polisi + hero). Six civilian cars staged
+    // ahead of the chase on the same street, re-meshed in bright colours
+    // (the seeded cars are re-painted by replacing their mesh in the
+    // scene — the old mesh is removed, so no ghost car stays at the far
+    // end). Eastbound lane z=-21.5, same direction as Rico, rear view:
+    // yellow taxi, teal sedan, white coupe, red sports at dx 30/44/58/72.
+    // Westbound lane z=-26.5, oncoming, front view: blue sedan, orange
+    // van at dx 36/52. Spacing is checked against the police offsets
+    // above (nearest police nose 5.5 clear of the taxi) and against each
+    // other (nearest pair 3.2 clear). Positions are set through the
+    // traffic fields (axis/street/direction/along/lane), so the one final
+    // update step below places them with placeCar — the cars move ~0.25
+    // in that step and hold for the frozen frame. Total in frame: 3
+    // police + 6 civilian + hero = 10 vehicles.
+    const scene = game.renderer.scene;
+    const stagedCars = [
+      { kind: 'taxi', color: 0xffd94a, dx: 30, lane: -21.5, dir: 1 },
+      { kind: 'sedan', color: 0x2ad8c8, dx: 44, lane: -21.5, dir: 1 },
+      { kind: 'coupe', color: 0xf5f5f5, dx: 58, lane: -21.5, dir: 1 },
+      { kind: 'sports', color: 0xe83a3a, dx: 72, lane: -21.5, dir: 1 },
+      { kind: 'sedan', color: 0x2a6fd8, dx: 36, lane: -26.5, dir: -1 },
+      { kind: 'van', color: 0xff8a3d, dx: 52, lane: -26.5, dir: -1 },
+    ];
+    stagedCars.forEach((spec, i) => {
+      const car = game.traffic.cars[i];
+      if (!car) return;
+      scene.remove(car.mesh.group);
+      car.mesh = createCarMesh(spec.kind, spec.color);
+      scene.add(car.mesh.group);
+      car.kind = spec.kind;
+      car.color = spec.color;
+      car.axis = 'x';
+      car.street = -24;
+      car.direction = spec.dir;
+      car.along = game.player.x + spec.dx;
+      car.lane = spec.lane;
+      car.speed = car.cruise;
+    });
     // One real step, so the HUD and the minimap paint the staged positions.
     game.update(STEP, ZERO_AXES, 0, false);
+    // Builder #15 — THE HELICOPTER, IN THE FRAME (fadli: "mana heli
+    // nya"). The VSPD chopper circles 42 units around the player, and at
+    // the 9-second mark that puts it 42 units BEHIND the chase — the
+    // cover camera looks east, so #14c has no heli at all (probe: heli
+    // at (57.6, 36, -22.7), behind the camera). After the last update it
+    // is parked in the sky ahead of the chase instead: 48 east, 18 to
+    // the north (left) side, 24 high — upper-left of the frame like
+    // Halcyon's chopper, rotor frozen mid-spin, searchlight cone down.
+    // Height 24 (was 30): at 30 the tail boom was cut by the frame's top
+    // edge; at 24 the whole chopper sits inside with headroom. The shot
+    // is frozen after staging, so no update ever moves it back.
+    const heli = game.city.helicopter;
+    if (heli) {
+      heli.visible = true;
+      heli.position.set(game.player.x + 48, 24, game.player.z - 18);
+      heli.rotation.y = -0.25;
+      game.city.heliRotor.rotation.y = 0.7;
+      game.city.heliTailRotor.rotation.x = 1.1;
+    }
     // The staged frame is a chase, not a wreck: full health for the photo.
     game.player.health = 100;
     game.hud.setHealth(100);

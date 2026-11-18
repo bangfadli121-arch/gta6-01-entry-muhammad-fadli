@@ -99,6 +99,7 @@ export function stageShot(name, game) {
     game.update(STEP, ZERO_AXES, 0, false);
     // The staged frame is a chase, not a wreck: full health for the photo.
     game.player.health = 100;
+    game.hud.setHealth(100);
     return { screen: 'play' };
   }
   if (name === 'driving') {
@@ -108,6 +109,7 @@ export function stageShot(name, game) {
     // A sideswipe or a police ram on the way in is real play, not the photo:
     // the driving frame shows the city and the traffic, not a dented Rico.
     game.player.health = 100;
+    game.hud.setHealth(100);
     return { screen: 'play' };
   }
   if (name === 'onfoot') {
@@ -143,6 +145,7 @@ export function stageShot(name, game) {
     // The guards land hits while Rico closes in; the photo is the fight
     // starting, not Rico losing it — full health for the frame.
     game.player.health = 100;
+    game.hud.setHealth(100);
     return { screen: 'play' };
   }
   // 'start' and anything else: the title screen over a living city.

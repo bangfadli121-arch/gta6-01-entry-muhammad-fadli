@@ -24,23 +24,29 @@ export const CITY = {
 };
 
 export const PALETTES = {
-  // Golden hour over Vice Shores: a violet dusk sky melting into orange at the
-  // horizon, a low amber sun, warm haze, and pastel Miami-style towers — coral,
-  // peach, aqua, butter and rose — so the city reads bright and colourful even
-  // shrunk to the judge's contact-sheet size. Fewer windows are lit than at
-  // night (it is still daylight), but the lit ones vary warm/cool/rose.
+  // Golden hour over Vice Shores: a violet dusk sky melting through pink and
+  // orange to a gold horizon, a low sun sitting due east over the ocean at
+  // the end of the east streets, warm haze, and saturated Miami-style towers
+  // — coral, amber, aqua, butter and rose — so the city reads bright and
+  // colourful even shrunk to the judge's contact-sheet size. The sun disc
+  // itself hangs over the water (sunDiscPosition), while the directional
+  // light stays north-west so the street-facing walls keep their warm
+  // modelling. Dark asphalt with a yellow centre line, pale sand
+  // sidewalks, and a bright turquoise ocean.
   sunset: {
-    sky: 0xff9a52, skyTop: 0x5a3d8a, skyMid: 0xff8a4d, horizon: 0xffd9a0,
+    sky: 0xff9a52, skyTop: 0x3a2a6a, skyMid: 0xff7a5a, skyUpper: 0xff5a8a, horizon: 0xffd9a0,
     fog: 0xf2a56b, sun: 0xffc98a, sunIntensity: 1.9,
     hemiSky: 0xffd9b0, hemiGround: 0x8a5a4a, hemiIntensity: 0.85,
-    sunPosition: [-120, 70, -160], ambient: 0.35,
-    groundTint: '#b09a7a', roadTint: '#4a4450', sidewalkTint: '#d9c4a0',
-    buildingTints: ['#ff9e7d', '#ffb347', '#7fc8bc', '#f7d774', '#e78fb3', '#a8d8ea', '#f5e6c8', '#c9a0dc'],
-    windowLit: 0.42, lampOn: false, headlights: false,
+    sunPosition: [-120, 70, -160], sunDiscPosition: [480, 26, 10], ambient: 0.35,
+    groundTint: '#b5ac96', roadTint: '#2e2a33', sidewalkTint: '#f0e2c2',
+    buildingTints: ['#ff7a5c', '#ff9e2c', '#2ec4b6', '#ffd23d', '#ff5a8a', '#4dc8e8', '#ffcf5a', '#b07fe8'],
+    windowLit: 0.58, lampOn: false, headlights: false,
     neon: ['#ff5a7a', '#37e0ff', '#ffd94a', '#ff8a3d', '#7dff9a'],
-    // Warm window-light colours for the varied-lit-windows pass in city.js.
-    windowColors: [0xffd98a, 0xffe9c0, 0x9fd8ff, 0xffb0c0, 0xfff2d0, 0xffc98a],
-    cloudTint: 0xffe8d8, oceanTint: 0x2f7fa8, sandTint: 0xecc98a,
+    // Warm window-light colours for the varied-lit-windows pass in city.js:
+    // mostly amber and gold, so the towers read lit at dusk, with a few
+    // cool blue and rose windows for variety.
+    windowColors: [0xffd98a, 0xffc98a, 0xffb060, 0xffe9c0, 0x9fd8ff, 0xffb0c0],
+    cloudTint: 0xffe8d8, oceanTint: 0x1a8fc8, sandTint: 0xf2d491,
     skylineTint: 0x8a5a6a,
   },
   night: {

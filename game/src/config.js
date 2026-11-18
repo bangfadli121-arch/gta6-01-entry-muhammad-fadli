@@ -40,16 +40,25 @@ export const PALETTES = {
     fog: 0xf7b98a, sun: 0xffc98a, sunIntensity: 2.0,
     hemiSky: 0xffe0c0, hemiGround: 0x8a5a4a, hemiIntensity: 0.95,
     sunPosition: [-120, 70, -160], sunDiscPosition: [480, 26, 10], ambient: 0.35,
+    // Builder #10 (GPU textures): when the photographed sky is live, the
+    // sun disc moves up into the clear strip left of the title card, above
+    // the photographed sun's own glow on the horizon, so the title frame
+    // has exactly one unmistakable sun; the dome rotation below puts the
+    // photographed sun on the same azimuth (north-east, over the ocean),
+    // directly under the disc. The fallback (no texture) keeps the old
+    // disc position and the procedural shader sky.
+    sunDiscPositionTextured: [329, 95, -156],
+    skyTextureRotationY: -1.16,
     groundTint: '#b5ac96', roadTint: '#2e2a33', sidewalkTint: '#f0e2c2',
     buildingTints: ['#ff7a5c', '#ff9e2c', '#2ec4b6', '#ffd23d', '#ff5a8a', '#4dc8e8', '#ffcf5a', '#b07fe8'],
-    windowLit: 0.58, lampOn: false, headlights: false,
+    windowLit: 0.28, lampOn: false, headlights: false,
     neon: ['#ff5a7a', '#37e0ff', '#ffd94a', '#ff8a3d', '#7dff9a'],
     // Warm window-light colours for the varied-lit-windows pass in city.js:
     // mostly amber and gold, so the towers read lit at dusk, with a few
     // cool blue and rose windows for variety.
     windowColors: [0xffd98a, 0xffc98a, 0xffb060, 0xffe9c0, 0x9fd8ff, 0xffb0c0],
     cloudTint: 0xffe8d8, oceanTint: 0x22b4e6, sandTint: 0xf2d491,
-    skylineTint: 0x8a5a6a,
+    skylineTint: 0xb0707a,
     // Builder #9 coast dressing: the two greens of the drooping palm
     // fronds, the low beachfront shop row's awning tints, and the bright
     // surf white for the curved foam line.

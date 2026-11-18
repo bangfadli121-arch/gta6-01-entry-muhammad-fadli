@@ -148,34 +148,51 @@ export function stageShot(name, game) {
     // edge of the frame (ndcY 0.91) with the rim top far outside it,
     // while the FLAMINGO board sits at ndcX 0.87, half out of frame —
     // the chase drove TOO far east.
-    // Builder #12, third look (probe again, 9 s): the hub is in frame
-    // (ndcY 0.57) and both boards project inside the frame — VICE at
-    // ndcX -0.27, FLAMINGO at ndcX 0.44 — but the FLAMINGO board is
-    // still hidden behind the near south-side towers from the 9-second
-    // camera (a hide-the-city test proves the right-side mass is city
-    // geometry). EIGHT seconds is the sweet spot: the camera sits
-    // further west, so the board (29° right of forward) clears the
-    // (107,11) tower (45° right, at the frame's edge) and the wheel
-    // stands whole at the end of the street — and the corridor towers,
-    // now capped at 8, can no longer hide it the way they did in #11.
-    step(game, 8, () => lanePilot(game, -20.6, 'x')); // The right-hand lane.
+    // Builder #13 — NINE seconds. The drive is slower than the old
+    // comments assumed (the trace: 7 s only reaches x=52 — the car needs
+    // ~4 s to wind up to speed, so 8 s lands at x~75, not x~146 as the
+    // #12 log's 11-second probe suggested). At nine seconds the camera
+    // sits ~90 units from the wheel: the rim top is just inside the
+    // frame's top edge (~90% of the wheel shows, big), and the FLAMINGO
+    // board sits ~30° off-axis at ~23% of the frame's width — big enough
+    // to read. At ten the wheel's top is cut and the board crowds the
+    // frame's edge; at eight both landmarks read small.
+    step(game, 9, () => lanePilot(game, -20.6, 'x')); // The right-hand lane.
     game.startMission(2); // Three stars: the VSPD is on Rico.
     // One step so the three units actually spawn (they only appear inside
     // police.update), then park them ahead of the player for the chase frame.
     game.update(STEP, ZERO_AXES, 0, false);
-    // Three units, converging on the player, all inside the frame — close
-    // enough to read as a chase, not specks on the horizon. Ahead is east.
+    // Builder #13 — THREE units, CLOSE and converging, all inside the
+    // frame: 11–20 units ahead of the hero (was 14–30, where they read as
+    // specks), staggered across the lanes and facing the player, so the
+    // chase reads in the cover — black-and-white cars with their light
+    // bars on — not just a VSPD list in the HUD.
     placePoliceAhead(game, [
-      { dx: 14, dz: -6 }, { dx: 20, dz: 8 }, { dx: 30, dz: 0 },
+      { dx: 11, dz: -5 }, { dx: 15, dz: 6 }, { dx: 20, dz: -1 },
     ]);
     // One real step, so the HUD and the minimap paint the staged positions.
     game.update(STEP, ZERO_AXES, 0, false);
     // The staged frame is a chase, not a wreck: full health for the photo.
     game.player.health = 100;
     game.hud.setHealth(100);
-    // The chase frame carries the feedback text the winners show: a drift
-    // count and a near miss, pinned for the photo.
-    game.hud.showFeedback('DRIFT x3', 'NEAR MISS +$250', true);
+    // Builder #13 — pin the light bars ON (flash = 1, red side lit) and
+    // re-sync every unit, so the bars read the same in every capture:
+    // the flash phase is wall-clock-ish (flashTime % 0.7) and would
+    // otherwise flip red/blue between runs.
+    for (const u of game.police.units) {
+      u.car.flash = 1;
+      syncCarMesh(u.mesh, u.car, 0);
+    }
+    // Builder #13 — the Halcyon cover framing: low, close, off-axis, so
+    // the pink hero car fills the bottom of the frame in three-quarter
+    // rear view. Frozen shot mode never calls updateCamera again, so this
+    // pose holds until the capture.
+    game.renderer.setCoverCamera(game.player);
+    // Builder #13 — NO pinned DRIFT feedback in the cover: the big
+    // centre text sat on the ferris wheel's lower half (the wheel now
+    // fills the frame's centre), so the photo carries the chase, the
+    // wheel and the board clean. The feedback system itself is untouched
+    // — it still pops during real play.
     return { screen: 'play' };
   }
   if (name === 'driving') {

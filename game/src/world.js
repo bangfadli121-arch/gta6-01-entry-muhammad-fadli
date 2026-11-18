@@ -336,14 +336,53 @@ export function createGame(canvas, theme, seed) {
     if (kind === 'crash') audio.crash(0.4);
   }
 
+  // The district name under the minimap, from the player's position.
+  function districtName(x, z) {
+    if (x >= CITY.beachX) return 'PALM BEACH';
+    if (x <= -120 && z >= 110) return 'THE DOCKS';
+    if (Math.hypot(x - HIDEOUT.x, z - HIDEOUT.z) < 25) return 'HIDEOUT';
+    if (Math.abs(x) < 70 && Math.abs(z) < 70) return 'DOWNTOWN';
+    if (z >= 110) return 'SOUTHSHORE';
+    if (x <= -120) return 'WESTSIDE';
+    return 'VICE SHORES';
+  }
+
   function syncHud(force) {
     hud.setStars(wanted);
     hud.setCash(player.cash);
     hud.setHealth(player.health);
     hud.setObjective(missions.currentObjective());
+    const mission = missions.missionIndex >= 0 ? MISSIONS[missions.missionIndex] : null;
+    hud.setStage(mission ? missions.stepIndex + 1 : 0, mission ? mission.steps.length : 0);
     hud.setAmmo(player.ammo);
     hud.setSpeed(Math.abs(player.speed) * 3.6, player.inCar);
     hud.setCrosshair(!player.inCar);
+    // The VSPD response list: each live unit's call sign, distance and
+    // chase status, all read off the police module's own unit state.
+    hud.setPolice(police.units.map((u, i) => {
+      const dist = Math.round(Math.hypot(u.car.x - player.x, u.car.z - player.z));
+      let status = 'ENROUTE';
+      if (u.stuckTimer > 0) status = 'STUCK';
+      else if (u.bustTimer > 0) status = 'BUST';
+      else if (dist < 8) status = 'RAMMING';
+      else if (dist < 40) status = 'PURSUIT';
+      return { name: `VSPD-${i + 1}`, dist, status };
+    }));
+    // The dialog bar: the mission giver and the live objective line.
+    if (mission) {
+      const initials = mission.giver.split(' ').map((w) => w[0]).join('');
+      hud.setDialog(mission.giver, initials, missions.currentObjective().text);
+    } else {
+      hud.setDialog('', '', '');
+    }
+    // The clock: Day 1 from 18:52, one game minute per two seconds of play.
+    const minutes = 18 * 60 + 52 + Math.floor(state.time / 2);
+    const day = 1 + Math.floor(minutes / (24 * 60));
+    const hh = String(Math.floor((minutes % (24 * 60)) / 60)).padStart(2, '0');
+    const mm = String(minutes % 60).padStart(2, '0');
+    hud.setClock(`DAY ${day} · ${hh}:${mm}`);
+    hud.setVehicle(player.inCar && player.car ? player.car.kind.toUpperCase() : 'ON FOOT');
+    hud.setLocation(districtName(player.x, player.z));
     hud.setHint(player.inCar
       ? 'WASD drive · Space handbrake · E get out · P pause · M mute'
       : 'WASD walk · E steal a car · F punch · Click to shoot · P pause · M mute');

@@ -82,7 +82,7 @@ export function createTraffic(scene, seed, buildings) {
     const along = range(rng, -180, 180);
     const side = chance(rng, 0.5) ? 1 : -1;
     const kind = own ? 'sports' : pick(rng, CAR_KINDS);
-    const color = own ? 0xffd94a : pick(rng, CAR_COLORS);
+    const color = own ? 0xff2a6a : pick(rng, CAR_COLORS);
     const car = makeCarRecord(kind, color, 0, 0, 0);
     car.own = own;
     if (own) {

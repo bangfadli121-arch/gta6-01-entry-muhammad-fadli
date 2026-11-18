@@ -113,6 +113,21 @@ export function stageShot(name, game) {
     for (const c of game.traffic.cars) {
       c.along = c.direction > 0 ? -175 : 175;
     }
+    // Builder #12: clear the PARKED kerb too — a parked truck on the
+    // z=-24 kerb right ahead of the chase start filled the whole
+    // bottom-left of the cover frame with one flat orange slab. Parked
+    // cars in the chase corridor (both kerbs, x -80..195) are rolled to
+    // the street's far west end, behind the camera, where they can
+    // neither block the wheel nor loom in the foreground. The player's
+    // own car is exempt.
+    for (const p of game.traffic.parked) {
+      if (p.own) continue;
+      if (p.x > -80 && p.x < 195 && Math.abs(p.z + 20.6) < 12) {
+        p.x = -170;
+        p.along = -170;
+        syncCarMesh(p.mesh, p, 0);
+      }
+    }
     // Drive clean first: the heat only lands once the chase frame is staged,
     // so the police have no time to ram Rico to pieces before the photo.
     // Builder #11: eight seconds from further west — the chase must still
@@ -120,6 +135,29 @@ export function stageShot(name, game) {
     // camera must be east of the mid-city towers so the low sun reads
     // down the street. The pilot brakes for the car ahead; the street
     // ahead is cleared above, so it never has to.
+    // Builder #12: ELEVEN seconds — the 8-second frame wedged the chase
+    // behind the (133,-11) tower, which hid the ferris wheel, and the
+    // yellow drum at (107,-37) blocked the VICE SHORES board. At eleven
+    // seconds (proven in #11's local run 5) the camera is past both
+    // blockers, the wheel stands at the end of the street, and both
+    // billboards sit whole in the frame. The corridor towers are also
+    // capped low in city.js, so the composition no longer hangs on one
+    // exact drive length.
+    // Builder #12, second look (probe, not a guess): at eleven seconds
+    // the car is at x=146 and the wheel hub projects to the very top
+    // edge of the frame (ndcY 0.91) with the rim top far outside it,
+    // while the FLAMINGO board sits at ndcX 0.87, half out of frame —
+    // the chase drove TOO far east.
+    // Builder #12, third look (probe again, 9 s): the hub is in frame
+    // (ndcY 0.57) and both boards project inside the frame — VICE at
+    // ndcX -0.27, FLAMINGO at ndcX 0.44 — but the FLAMINGO board is
+    // still hidden behind the near south-side towers from the 9-second
+    // camera (a hide-the-city test proves the right-side mass is city
+    // geometry). EIGHT seconds is the sweet spot: the camera sits
+    // further west, so the board (29° right of forward) clears the
+    // (107,11) tower (45° right, at the frame's edge) and the wheel
+    // stands whole at the end of the street — and the corridor towers,
+    // now capped at 8, can no longer hide it the way they did in #11.
     step(game, 8, () => lanePilot(game, -20.6, 'x')); // The right-hand lane.
     game.startMission(2); // Three stars: the VSPD is on Rico.
     // One step so the three units actually spawn (they only appear inside

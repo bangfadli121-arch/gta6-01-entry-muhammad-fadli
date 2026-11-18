@@ -8,6 +8,7 @@ import { STEP, THEME } from './config.js';
 import { createGame } from './world.js';
 import { ACTION_CONFIRM, ACTION_PAUSE, createInput } from './input.js';
 import { stageShot } from './shots.js';
+import { loadGameTextures } from './textures.js';
 
 const MAX_FRAME = 0.25;
 
@@ -33,7 +34,13 @@ const saveLine = document.getElementById('saveLine');
 const saveInfo = document.getElementById('saveInfo');
 const status = document.getElementById('status');
 
-const game = createGame(canvas, THEME, seed);
+// The GPU textures load (or fail over to nulls) BEFORE the game is built,
+// so the city is never painted half-textured and the staged screenshots
+// are deterministic. The status is exposed for headless play-testing.
+const textures = await loadGameTextures();
+window.__textures = textures.__status || { loaded: [], failed: [] };
+
+const game = createGame(canvas, THEME, seed, textures);
 window.__game = game;
 
 function showOnly(element) {

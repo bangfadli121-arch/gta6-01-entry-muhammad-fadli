@@ -82,18 +82,21 @@ function placePoliceAhead(game, offsets) {
 export function stageShot(name, game) {
   if (name === 'cover') {
     game.reset(true);
-    placeInOwnCar(game, 29, 100, -Math.PI / 2);
+    // The chase runs east down the beachfront street toward the ocean and
+    // the low sun, palms on both kerbs, the billboard and the ferris wheel
+    // ahead on the left, the beach at the end of the street.
+    placeInOwnCar(game, -10, -29, 0);
     // Drive clean first: the heat only lands once the chase frame is staged,
     // so the police have no time to ram Rico to pieces before the photo.
-    step(game, 5, () => lanePilot(game, 32.4, 'z')); // The right-hand lane.
+    step(game, 6, () => lanePilot(game, -25.6, 'x')); // The right-hand lane.
     game.startMission(2); // Three stars: the VSPD is on Rico.
     // One step so the three units actually spawn (they only appear inside
     // police.update), then park them ahead of the player for the chase frame.
     game.update(STEP, ZERO_AXES, 0, false);
     // Three units, converging on the player, all inside the frame — close
-    // enough to read as a chase, not specks on the horizon.
+    // enough to read as a chase, not specks on the horizon. Ahead is east.
     placePoliceAhead(game, [
-      { dx: -6, dz: -14 }, { dx: 8, dz: -20 }, { dx: 0, dz: -30 },
+      { dx: 14, dz: -6 }, { dx: 20, dz: 8 }, { dx: 30, dz: 0 },
     ]);
     // One real step, so the HUD and the minimap paint the staged positions.
     game.update(STEP, ZERO_AXES, 0, false);
@@ -104,8 +107,10 @@ export function stageShot(name, game) {
   }
   if (name === 'driving') {
     game.reset(true);
-    placeInOwnCar(game, -100, 29, 0);
-    step(game, 5, () => lanePilot(game, 32.4, 'x')); // The right-hand lane.
+    // The cruise runs east toward the beach: palms on both kerbs, the sun
+    // low over the ocean at the end of the street, sand and water ahead.
+    placeInOwnCar(game, -40, 29, 0);
+    step(game, 9, () => lanePilot(game, 32.4, 'x')); // The right-hand lane.
     // A sideswipe or a police ram on the way in is real play, not the photo:
     // the driving frame shows the city and the traffic, not a dented Rico.
     game.player.health = 100;
@@ -117,13 +122,14 @@ export function stageShot(name, game) {
     game.startMission(1);
     const courier = game.courier;
     // Stop the courier right in front of Rico and bring his guards out.
-    courier.car.along = -40;
+    // The fight faces east, into the low sun and the palms of the street.
+    courier.car.along = 40;
     courier.car.street = 29;
     courier.car.axis = 'x';
     courier.car.cruise = 0;
     courier.stopped = true;
     courier.runTimer = 99;
-    const cx = -40;
+    const cx = 40;
     const cz = 32;
     courier.car.x = cx;
     courier.car.z = cz;
@@ -135,7 +141,7 @@ export function stageShot(name, game) {
     game.briefcase.mesh.position.set(game.briefcase.x, 0.6, game.briefcase.z);
     game.briefcase.mesh.visible = true;
     const p = game.player;
-    p.x = cx + 10;
+    p.x = cx - 10;
     p.z = cz + 6;
     p.heading = Math.atan2(cz - p.z, cx - p.x);
     p.mesh.position.set(p.x, 0, p.z);

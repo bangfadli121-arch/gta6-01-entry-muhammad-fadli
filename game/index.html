@@ -29,23 +29,27 @@
   #policeList .st.PURSUIT { color: #ffb347; }
   #policeList .st.ENROUTE { color: #ffe9a0; }
   #policeList .st.STUCK { color: #c9b8ff; }
-  #objectiveBox { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 8px 18px; text-align: center; max-width: 560px; border-top: 3px solid #ffd94a; }
+  /* Builder #13 (Halcyon-style): the mission card sits TOP-LEFT, not
+     top-centre — top-centre covered the ferris wheel in every cover
+     frame. The left stack (health/ammo/weapons/radio) moves down to
+     clear it. */
+  #objectiveBox { position: absolute; top: 12px; left: 12px; padding: 8px 18px; text-align: left; max-width: 460px; border-top: 3px solid #ffd94a; }
   #objectiveTitle { font-size: 13px; letter-spacing: 3px; color: #ffd94a; font-weight: 800; }
   #objectiveText { font-size: 19px; font-weight: 700; }
   #objectiveSub { font-size: 12px; color: #d8d8ff; }
   #stageBarOuter { height: 6px; background: rgba(0,0,0,.55); border-radius: 3px; margin-top: 6px; overflow: hidden; }
   #stageBar { height: 100%; width: 50%; background: linear-gradient(90deg, #ffd94a, #ff8a3d); }
   #stageText { font-size: 11px; letter-spacing: 2px; color: #ffe9a0; font-weight: 700; margin-top: 3px; }
-  #healthBox { position: absolute; left: 12px; top: 92px; width: 190px; padding: 8px 10px; border-top: 3px solid #ff5a5a; }
+  #healthBox { position: absolute; left: 12px; top: 140px; width: 190px; padding: 8px 10px; border-top: 3px solid #ff5a5a; }
   #healthBox .lbl { font-size: 11px; letter-spacing: 2px; font-weight: 700; color: #ffb3b3; }
   #healthBarOuter { height: 12px; background: rgba(0,0,0,.6); border-radius: 6px; margin-top: 4px; overflow: hidden; }
   #healthBar { height: 100%; width: 100%; background: linear-gradient(90deg, #ff5a5a, #ff9a3d); }
-  #ammoBox { position: absolute; left: 12px; top: 152px; padding: 6px 12px; font-size: 16px; font-weight: 800; color: #ffe9a8; }
-  #weaponBox { position: absolute; left: 12px; top: 192px; padding: 6px 10px; font-size: 13px; font-weight: 800; }
+  #ammoBox { position: absolute; left: 12px; top: 200px; padding: 6px 12px; font-size: 16px; font-weight: 800; color: #ffe9a8; }
+  #weaponBox { position: absolute; left: 12px; top: 240px; padding: 6px 10px; font-size: 13px; font-weight: 800; }
   #weaponBox .slot { display: inline-block; padding: 2px 8px; border-radius: 4px; margin-right: 4px; color: rgba(255,255,255,.55); }
   #weaponBox .slot.on { background: #ffd94a; color: #1a1030; }
   #weaponBox .slot.locked { color: rgba(255,255,255,.3); }
-  #radioBar { position: absolute; left: 12px; top: 232px; padding: 6px 12px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+  #radioBar { position: absolute; left: 12px; top: 280px; padding: 6px 12px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
   #radioBar .station { color: #ff5a8a; font-weight: 800; letter-spacing: 1px; }
   #radioBar .song { color: #ffe9c0; font-weight: 600; }
   #radioBar .eq { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; }

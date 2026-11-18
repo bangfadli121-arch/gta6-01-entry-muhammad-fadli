@@ -7,10 +7,15 @@
 // library. The game itself is an original open-world crime game: a seeded city
 // to explore on foot and by car, traffic and pedestrians, cars to steal, a
 // wanted level with police who chase, three chained missions, combat, a HUD
-// with a minimap, a start screen and a save in localStorage. The neon-night
-// variant is the entry: the same city after dark, lit windows and police light
-// bars, chosen over the golden-hour variant because it reads more clearly at
-// the judge's contact-sheet size and looks like nothing else in the field.
+// with a minimap, a start screen and a save in localStorage. The shipped look
+// is golden hour over a beach city: a pink-orange gradient sky with a low sun
+// and warm haze, pastel towers with varied lit windows, palms along the
+// beachfront avenues, colourful beach umbrellas, a big neon billboard and a
+// ferris wheel on the sand, saturated car paint, crosswalks and kerb-parked
+// cars on busy streets, and a denser HUD — a VSPD response list, a
+// mission-giver dialog bar, a radio bar, weapon slots, a stage bar, a
+// day/clock line and a district name — all drawn from state the game already
+// owns, so nothing about play itself changed.
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:

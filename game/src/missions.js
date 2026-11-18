@@ -30,9 +30,9 @@ export function createMissions(scene, seed) {
 
   // The courier's car: a dark sedan that cruises the streets until a
   // mission stops it. It is a plain car record with a street driver.
-  const courierCar = makeCarRecord('sedan', 0x22222c, -40, 29, 0);
+  const courierCar = makeCarRecord('sedan', 0x22222c, -40, 24, 0);
   courierCar.axis = 'x';
-  courierCar.street = 29;
+  courierCar.street = 24;
   courierCar.along = -40;
   courierCar.direction = 1;
   courierCar.cruise = 12;
@@ -126,7 +126,7 @@ export function createMissions(scene, seed) {
       courier.car.mesh.group.visible = courier.active;
       if (courier.active) {
         courier.car.axis = 'x';
-        courier.car.street = 29;
+        courier.car.street = 24;
         courier.car.along = -120;
         courier.car.direction = 1;
         courier.car.cruise = 12;
@@ -170,8 +170,8 @@ export function createMissions(scene, seed) {
       // The courier cruises his street until a step stops him.
       if (courier.active && !courier.stopped) {
         courier.car.along += courier.car.direction * courier.car.speed * dt;
-        if (courier.car.along > 200) { courier.car.along = -200; }
-        if (courier.car.along < -200) { courier.car.along = 200; }
+        if (courier.car.along > 185) { courier.car.along = -185; }
+        if (courier.car.along < -185) { courier.car.along = 185; }
         if (courier.car.axis === 'x') {
           courier.car.x = courier.car.along;
           courier.car.z = courier.car.street + 3.4;

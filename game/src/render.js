@@ -328,24 +328,32 @@ export function createRenderer(canvas, theme, textures) {
     const fz = Math.sin(player.heading);
     // Right of the heading is (-sin h, cos h) in xz; the camera sits on
     // the LEFT-rear quarter (lat negative), the look target a touch right.
+    // Builder #15 — centre the hero (fadli: mobil hero jangan kepotong
+    // tepi kanan lagi). #14c put the car at px ~1245-1464 (rear), hard
+    // right of centre: lat -4.8 pushed the camera too far left and the
+    // +1.5 look offset pulled the frame's centre right of the car. Lat
+    // -3.4 + look +0.5 moves the car ~100 px toward the middle while the
+    // car stays big in three-quarter rear view; height 3.0 (was 3.3) is
+    // lower and closer to the Halcyon/Costa Solis chase pose. Dist 6.8
+    // keeps the whole car — spoiler included — inside the frame.
     const rx = -Math.sin(player.heading);
     const rz = Math.cos(player.heading);
-    const dist = 6.5;
-    const lat = -4.8;
+    const dist = 6.8;
+    const lat = -3.4;
     camera.position.set(
       player.x - fx * dist + rx * lat,
-      3.3,
+      3.0,
       player.z - fz * dist + rz * lat,
     );
     camera.fov = 62;
     camera.updateProjectionMatrix();
-    camera.lookAt(player.x + fx * 12, 3.2, player.z + fz * 12 + 1.5);
+    camera.lookAt(player.x + fx * 12, 3.2, player.z + fz * 12 + 0.5);
     camState.x = camera.position.x;
     camState.y = camera.position.y;
     camState.z = camera.position.z;
     camState.lookX = player.x + fx * 12;
     camState.lookY = 3.2;
-    camState.lookZ = player.z + fz * 12 + 1.5;
+    camState.lookZ = player.z + fz * 12 + 0.5;
   }
 
   /** Place the camera for a low establishing view of the island (title

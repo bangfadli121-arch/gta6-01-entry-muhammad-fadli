@@ -1,6 +1,8 @@
 // The minimap: a 2D canvas that draws the city from above — roads, the beach,
 // the player as an arrow, police as flashing dots, traffic as specks and the
 // mission marker as a pulsing diamond. One clear job, no three.js in here.
+// Golden-hour colours: a warm sand base, pastel blocks and pale roads, so the
+// map reads like the sunny city it shows instead of a night map.
 import { CITY } from './config.js';
 
 const WORLD = 440;
@@ -18,10 +20,10 @@ export function drawMinimap(canvas, view) {
   ctx.beginPath();
   ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
   ctx.clip();
-  ctx.fillStyle = '#101018';
+  ctx.fillStyle = '#f7d9a0';
   ctx.fillRect(0, 0, size, size);
   // Blocks.
-  ctx.fillStyle = '#2c2c38';
+  ctx.fillStyle = '#e8a87c';
   const half = CITY.blockSize / 2;
   for (let ix = 0; ix < 7; ix += 1) {
     for (let iz = 0; iz < 7; iz += 1) {
@@ -32,19 +34,19 @@ export function drawMinimap(canvas, view) {
     }
   }
   // Roads.
-  ctx.strokeStyle = '#8a8a9a';
+  ctx.strokeStyle = '#fff6e0';
   ctx.lineWidth = CITY.roadWidth * scale;
   for (const s of CITY.streets) {
     ctx.beginPath(); ctx.moveTo(toX(s), 0); ctx.lineTo(toX(s), size); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, toY(s)); ctx.lineTo(size, toY(s)); ctx.stroke();
   }
   // Beach and ocean.
-  ctx.fillStyle = '#c9b078';
+  ctx.fillStyle = '#ecc98a';
   ctx.fillRect(toX(CITY.beachX), 0, size - toX(CITY.beachX), size);
-  ctx.fillStyle = '#2a7ab8';
+  ctx.fillStyle = '#2f7fa8';
   ctx.fillRect(toX(CITY.waterX), 0, size - toX(CITY.waterX), size);
   // Traffic specks.
-  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  ctx.fillStyle = 'rgba(40,20,40,0.8)';
   for (const car of view.trafficCars) {
     ctx.fillRect(toX(car.x) - 1.5, toY(car.z) - 1.5, 3, 3);
   }
@@ -99,7 +101,7 @@ export function drawMinimap(canvas, view) {
   ctx.restore();
   ctx.restore();
   // North tick, so the player can tell which way the map is turned.
-  ctx.fillStyle = '#9fe8ff';
+  ctx.fillStyle = '#7a4a00';
   ctx.font = 'bold 11px sans-serif';
   ctx.textAlign = 'center';
   ctx.fillText('N', size / 2, 13);

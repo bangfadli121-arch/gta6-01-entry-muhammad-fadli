@@ -1250,6 +1250,11 @@ export function buildCity(scene, theme, seed, textures) {
       let da = Math.abs(a - wheelAngle);
       if (da > Math.PI) da = Math.PI * 2 - da;
       if (da < 0.22) continue;
+      // Builder #15 — keep the FLAMINGO board's sightline clear: the
+      // ring palms at a ~10.6 degrees (x 157-177, z 29-33) stand between
+      // the cover camera and the board (188, 44), and their crowns cross
+      // the board's subtitle band in the cover. Only that angle is cut.
+      if (a > 0.1 && a < 0.25) continue;
       let dd = Math.abs(a - docksAngle);
       if (dd > Math.PI) dd = Math.PI * 2 - dd;
       if (dd < 0.3) continue;
@@ -1269,14 +1274,35 @@ export function buildCity(scene, theme, seed, textures) {
     // cut — the avenue keeps its palms, the shots keep their frames.
     let pz = z;
     if (Math.abs(Math.abs(z) - 24) <= 10) pz = Math.sign(z) * (Math.abs(z) + 12);
-    streetPalms.push([111.4, pz], [128.6, pz]);
+    // Builder #15 — the (128.6, 0) avenue palm stands in the FLAMINGO
+    // board's sightline (probe: crown px 1324, upright fronds py 370-437
+    // straight across the "NEON NIGHTS" subtitle) — cut just that one.
+    // (111.4, 0) stays: its fronds only graze the board's top-right
+    // bezel, and it is the frame's biggest right-side palm.
+    streetPalms.push([111.4, pz]);
+    if (pz !== 0) streetPalms.push([128.6, pz]);
   }
   for (const street of [24, -24]) {
     for (let x = -123; x <= 150; x += 34) {
       if (CITY.streets.some((s) => Math.abs(x - s) < 7)) continue;
+      // Builder #15 — the (149, 15.4) and (149, 32.6) palms on the z=24
+      // street stand in the FLAMINGO board's sightline (probe: crowns at
+      // px 1346/1553, fronds across the subtitle) — cut just that pair.
+      if (street === 24 && x === 149) continue;
       streetPalms.push([x, street - 8.6, 0.6], [x, street + 8.6, 0.6]);
     }
   }
+  // Builder #15 — DENSE AVENUE PALMS FOR THE COVER (fadli: palem rapat
+  // di kedua sisi jalan, kayak Halcyon/Costa Solis — #14c cuma 4-5 palem
+  // kelihatan di frame). The chase camera sits ~x 93 looking east, so
+  // the visible stretch is x 95..180: four more on the south kerb
+  // (z=-15.4) and two on the north kerb (z=-32.6), short fronds (0.6x)
+  // like the other shot-street palms. The hitsBuilding check below drops
+  // any that lands on a tower (e.g. (130,-32.6) sits on the (133,-37)
+  // tower) — the survivors join the existing (115,149) pairs, so the
+  // frame carries ~10 palms instead of 4-5. All fixed positions, no rng.
+  for (const x of [95, 130, 165, 180]) streetPalms.push([x, -24 + 8.6, 0.6]);
+  for (const x of [95, 165]) streetPalms.push([x, -24 - 8.6, 0.6]);
   for (const [px, pz, fs] of streetPalms) {
     if (hitsBuilding(buildings, px, pz, 2.6)) continue;
     spotPalm(px, pz, hash2(px, pz) > 0.5 ? 0.1 : -0.1, fs || 1);
@@ -1406,6 +1432,57 @@ export function buildCity(scene, theme, seed, textures) {
     towel.rotation.z = hash2(i * 13, 7) * 1.2;
     towel.position.set(Math.cos(a) * 183, 0.05, Math.sin(a) * 183);
     group.add(towel);
+  }
+
+  // Builder #15 — BEACH BOULEVARD BESIDE THE COVER STREET (fadli: tiru
+  // Costa Solis — pantai di samping jalan, bukan cuma di ujung jalan).
+  // The strip x 120..175, z -14..-6 sits on the south sidewalk of the
+  // z=-24 chase street: the #14c shop-remap leaves that ground free of
+  // buildings east of x=116, the parked-car clearing in shots.js keeps
+  // the kerb empty, and the strip never touches the road's edge line
+  // (z=-17.5) or the intersection crosswalks (east side ends z=-19.2).
+  // Sand, four umbrellas, two towels and two beachgoers, all fixed
+  // positions (no rng() — the seeded stream never moves). From the cover
+  // camera it reads as sand + umbrellas on the road's right side, the
+  // way Costa Solis's beach flanks its causeway.
+  const stripSand = new THREE.Mesh(
+    new THREE.PlaneGeometry(55, 8),
+    new THREE.MeshStandardMaterial({ color: palette.sandTint ?? 0xf2d491, roughness: 1 }),
+  );
+  stripSand.rotation.x = -Math.PI / 2;
+  stripSand.position.set(147.5, 0.06, -10);
+  group.add(stripSand);
+  addUmbrella(126, -10, 0xff5a7a);
+  addUmbrella(142, -10.5, 0x37e0ff);
+  addUmbrella(158, -9.5, 0xffd94a);
+  addUmbrella(170, -10.5, 0x7dff9a);
+  for (let i = 0; i < 2; i += 1) {
+    const towel = new THREE.Mesh(
+      new THREE.PlaneGeometry(2.6, 1.4),
+      new THREE.MeshBasicMaterial({ color: towelCols[(i + 1) % towelCols.length] }),
+    );
+    towel.rotation.x = -Math.PI / 2;
+    towel.rotation.z = 0.4 + i * 0.5;
+    towel.position.set(134 + i * 22, 0.08, -7.5 - i * 1.5);
+    group.add(towel);
+  }
+  for (let i = 0; i < 2; i += 1) {
+    const figure = new THREE.Group();
+    const fBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.26, 0.3, 0.85, 8),
+      new THREE.MeshStandardMaterial({ color: beachShirts[(i + 2) % beachShirts.length], roughness: 0.85 }),
+    );
+    fBody.position.y = 0.95;
+    figure.add(fBody);
+    const fHead = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 10, 8),
+      new THREE.MeshStandardMaterial({ color: 0xd9a986, roughness: 0.7 }),
+    );
+    fHead.position.y = 1.6;
+    figure.add(fHead);
+    figure.position.set(150 + i * 15, 0, -8 - i * 2);
+    figure.rotation.y = 0.6 + i * 1.8;
+    group.add(figure);
   }
 
   // The big neon billboards on the beachfront, facing the city: the
@@ -1551,7 +1628,15 @@ export function buildCity(scene, theme, seed, textures) {
   // moved south of the wheel's sightline (z 13..39) so it never hides the
   // wheel — it stands beside the wheel's lower rim, not over it. The
   // whole board, lettering included, now sits inside the cover frame.
-  addBillboard(180, 26, -Math.PI / 4, 40, 16, 18, textures && textures.billboardFlamingo ? textures.billboardFlamingo.image : null, {
+  // Builder #15 — MOVED SOUTH + EAST, (188, 44): at (180, 26) the
+  // board's north-east end (the "F" of FLAMINGO) sat on the wheel rim's
+  // southernmost sightline, so the rim crossed the F and the L in the
+  // cover (probe: F at px ~1035, rim arc px 1020-1064 at the same height).
+  // At (188, 44) the whole board clears the rim: the F sits at azimuth
+  // ~28 degrees off the chase axis while the rim's southernmost point
+  // only reaches z=15, so no rim arc can cross the lettering again. The
+  // board stays in frame (its far end ~px 1470) and still reads whole.
+  addBillboard(188, 44, -Math.PI / 4, 40, 16, 18, textures && textures.billboardFlamingo ? textures.billboardFlamingo.image : null, {
     panel: [16, 4, 480, 112], title: 'FLAMINGO FM', titleSize: 56, titleY: 76,
     sub: 'NEON NIGHTS · OCEAN DRIVE', subY: 106, tag: 'PINK HORIZON · LIVE', tagY: 210, tagAlign: 'left',
   }, 0xff5ad8);

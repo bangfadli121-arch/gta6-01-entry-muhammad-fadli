@@ -4,10 +4,12 @@
 //
 // Builder #9 redraw (the change fadli asked for by name): the map is LINES
 // on sand and sea, never filled blocks. The land is pale sand, the streets
-// are thin dark lines with a yellow dash down the main roads, the blocks
-// are only faint pale outlines, and the coast is a gentle curve with a surf
-// line — the way the winning entries draw it. The player arrow is big with
-// a dark halo; north gets a dark pill.
+// are thin dark lines with a yellow dash down the main roads, and the coast
+// is a gentle curve with a surf line — the way the winning entries draw it.
+// Builder #10: the block outlines are gone entirely (their faint squares
+// are what still read as a grid of boxes), and the minor streets are
+// hairlines — only the beachfront boulevard and the two arterials carry
+// any weight. The player arrow is big with a dark halo; north gets a dark pill.
 import { CITY } from './config.js';
 
 const WORLD = 440;
@@ -39,30 +41,26 @@ export function drawMinimap(canvas, view) {
   // Land: pale sand everywhere, so the map reads as a beach city at a glance.
   ctx.fillStyle = '#f2d491';
   ctx.fillRect(0, 0, size, size);
-  // Blocks: faint pale outlines only — no filled colour, no squares. A
-  // whisper of a street grid, not a checkerboard.
-  const half = CITY.blockSize / 2;
-  ctx.strokeStyle = 'rgba(217,185,138,0.55)';
-  ctx.lineWidth = 1;
-  for (let ix = 0; ix < 7; ix += 1) {
-    for (let iz = 0; iz < 7; iz += 1) {
-      const cx = -CITY.pitch * 3 + ix * CITY.pitch;
-      const cz = -CITY.pitch * 3 + iz * CITY.pitch;
-      if (cx > 150) continue;
-      ctx.strokeRect(toX(cx - half), toY(cz - half), CITY.blockSize * scale, CITY.blockSize * scale);
-    }
-  }
+  // NO block outlines: the old faint squares are what made the map read as
+  // a checkerboard of boxes. The blocks stay invisible — only the streets
+  // are drawn, as thin lines on the sand, the way the winning entries draw it.
   // Roads: thin dark lines, so the street grid reads as lines on sand.
-  // Minor streets first, then the main roads a touch wider on top, with a
-  // yellow dashed centre line down each main road like the 3D streets carry.
-  ctx.strokeStyle = '#3a3340';
+  // Minor streets are dashed hairlines — dashes, not solid squares — so
+  // the map never reads as a checkerboard; only the beachfront boulevard
+  // and the two east-west arterials that run to the beach carry any
+  // weight, with a yellow dashed centre line down each main road like the
+  // 3D streets carry.
+  ctx.strokeStyle = 'rgba(58,51,64,0.45)';
   ctx.lineCap = 'round';
-  ctx.lineWidth = 2;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 4]);
   for (const s of CITY.streets) {
     ctx.beginPath(); ctx.moveTo(toX(s), 0); ctx.lineTo(toX(s), size); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, toY(s)); ctx.lineTo(size, toY(s)); ctx.stroke();
   }
-  ctx.lineWidth = 3.5;
+  ctx.setLineDash([]);
+  ctx.strokeStyle = '#3a3340';
+  ctx.lineWidth = 3;
   for (const s of MAIN_X) {
     ctx.beginPath(); ctx.moveTo(toX(s), 0); ctx.lineTo(toX(s), size); ctx.stroke();
   }
@@ -87,8 +85,8 @@ export function drawMinimap(canvas, view) {
   ctx.beginPath();
   ctx.moveTo(toX(CITY.beachX), 0);
   ctx.bezierCurveTo(
-    toX(CITY.beachX) + 10, size * 0.33,
-    toX(CITY.beachX) - 4, size * 0.66,
+    toX(CITY.beachX) + 18, size * 0.33,
+    toX(CITY.beachX) - 10, size * 0.66,
     toX(CITY.beachX), size,
   );
   ctx.lineTo(size, size);
@@ -99,8 +97,8 @@ export function drawMinimap(canvas, view) {
   ctx.beginPath();
   ctx.moveTo(toX(CITY.waterX), 0);
   ctx.bezierCurveTo(
-    toX(CITY.waterX) + 10, size * 0.33,
-    toX(CITY.waterX) - 4, size * 0.66,
+    toX(CITY.waterX) + 18, size * 0.33,
+    toX(CITY.waterX) - 10, size * 0.66,
     toX(CITY.waterX), size,
   );
   ctx.lineTo(size, size);
@@ -112,8 +110,8 @@ export function drawMinimap(canvas, view) {
   ctx.beginPath();
   ctx.moveTo(toX(CITY.waterX), 0);
   ctx.bezierCurveTo(
-    toX(CITY.waterX) + 10, size * 0.33,
-    toX(CITY.waterX) - 4, size * 0.66,
+    toX(CITY.waterX) + 18, size * 0.33,
+    toX(CITY.waterX) - 10, size * 0.66,
     toX(CITY.waterX), size,
   );
   ctx.stroke();

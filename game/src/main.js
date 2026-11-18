@@ -51,6 +51,10 @@ function showOnly(element) {
 }
 
 function runShot(name) {
+  // Freeze the radio equaliser for screenshots: its CSS animation phase
+  // is wall-clock, not game time, and it alone broke the byte-identical
+  // driving determinism check. Live play keeps the animation.
+  document.documentElement.classList.add('shot');
   // Stage with the renderer off: hundreds of SwiftShader frames would take a
   // minute and the scene state does not depend on painting. Then paint on
   // animation frames, so the compositor picks up a fresh WebGL frame — a render

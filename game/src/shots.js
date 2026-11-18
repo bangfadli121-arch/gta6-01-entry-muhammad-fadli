@@ -88,7 +88,22 @@ export function stageShot(name, game) {
     // seven seconds in, so the low shop row, the billboard and the wheel
     // are all inside the frame instead of the chase ending at a tower wall
     // — eight seconds drove too far east and pushed the wheel out of frame.
-    placeInOwnCar(game, -10, -29, 0);
+    // Builder #10: five seconds from further west, so the wheel is a full
+    // landmark in the frame instead of a sliver at the edge, the VICE
+    // SHORES board sits whole on the left, and the FLAMINGO FM board
+    // reads whole on the right — seven seconds drove the car so far east
+    // that the wheel hid behind the first board's glow and the board
+    // itself was cut off at the frame's left edge. Take 2: six seconds —
+    // five left the camera too far west and the beachfront tower row hid
+    // the wheel entirely, so the chase needs one more second east before
+    // the wheel clears the towers and the boards sit whole on both sides.
+    // Take 3: seven seconds after all — at six the wheel still sits
+    // behind the tower at (116,-58): the sightline only threads the x=145
+    // street gap once the camera is past x~90. The first board's glow
+    // sprite is shrunk so it no longer washes the wheel out, and the
+    // FLAMINGO board at z=40 still holds whole on the frame's right side
+    // at seven seconds (its far edge stays inside the frame).
+    placeInOwnCar(game, -30, -29, 0);
     // Drive clean first: the heat only lands once the chase frame is staged,
     // so the police have no time to ram Rico to pieces before the photo.
     step(game, 7, () => lanePilot(game, -25.6, 'x')); // The right-hand lane.

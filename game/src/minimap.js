@@ -11,6 +11,17 @@
 // way the winning entries draw theirs. The streets are thin lines on sand,
 // never filled blocks — only the ring boulevard and the two east-west
 // arterials carry any weight.
+//
+// Builder #16 — NO SQUARES, ANYWHERE (fadli on #15: "map nya masih ada
+// kotak nya"). The #11 map still drew every CITY street as a straight line
+// on BOTH axes, so the crossings tiled the island into a checkerboard of
+// squares — that is the grid fadli saw. The minor streets are gone: the
+// island's roads are curves now (ring arcs with gaps, bezier connectors
+// that bend from the boulevard toward downtown), the blocks are organic
+// blobs (rotated ellipses and wobbly closed curves, varied sizes), and
+// every marker is a circle — no straight crossing, no square, no
+// rectangle is drawn on this map at all. Only the two east-west arterials
+// stay straight: they are real roads, and two parallel lines make no grid.
 import { CITY } from './config.js';
 
 const WORLD = 440;
@@ -56,25 +67,80 @@ export function drawMinimap(canvas, view) {
   ctx.beginPath();
   ctx.arc(toX(0), toY(0), CITY.islandRadius * scale, 0, Math.PI * 2);
   ctx.stroke();
-  // Roads: thin dark lines, so the street grid reads as lines on sand.
-  // Minor streets are dashed hairlines — dashes, not solid squares — so
-  // the map never reads as a checkerboard; only the ring boulevard and
-  // the two east-west arterials that run to the beach carry any weight,
-  // with a yellow dashed centre line down each main road like the
-  // 3D streets carry. Streets stop at the ring: they never run into the sea.
-  const ringR = CITY.ringRadius * scale;
-  ctx.strokeStyle = 'rgba(58,51,64,0.45)';
+  // Builder #16 — ORGANIC BLOCKS, NO GRID. The blocks are drawn FIRST
+  // (roads draw over them, the way real blocks sit between roads): rotated
+  // ellipses in a slightly darker sand, varied sizes and angles, plus a
+  // few wobbly free-form blobs drawn as closed bezier curves, so no two
+  // blocks share an outline and none is a rectangle. All positions are
+  // fixed literals, so the map never moves.
+  const blob = (cx, cz, rx, ry, rot) => {
+    ctx.beginPath();
+    ctx.ellipse(toX(cx), toY(cz), rx * scale, ry * scale, rot, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  ctx.fillStyle = '#dec48c';
+  for (const [bx, bz, rx, ry, rot] of [
+    [40, 60, 26, 16, 0.5], [-30, 70, 22, 14, -0.4], [-80, 30, 24, 15, 0.9],
+    [80, -70, 26, 15, -0.7], [-50, -60, 20, 13, 0.3], [10, -90, 24, 14, 1.1],
+    [-100, -20, 18, 12, -0.9], [60, 100, 20, 12, 0.2], [-60, -110, 22, 13, 0.6],
+    [110, 30, 18, 12, -0.3], [-10, 20, 16, 11, 0.8], [30, -40, 15, 10, -1.2],
+    [-120, 70, 16, 11, 0.4], [100, -110, 17, 11, -0.6],
+  ]) blob(bx, bz, rx, ry, rot);
+  ctx.fillStyle = '#d8bd85';
+  const wobble = (cx, cz, r, seed) => {
+    ctx.beginPath();
+    for (let k = 0; k < 6; k += 1) {
+      const a0 = (k / 6) * Math.PI * 2;
+      const a1 = ((k + 1) / 6) * Math.PI * 2;
+      const r0 = r * (0.75 + hash2(seed, k) * 0.5);
+      const r1 = r * (0.75 + hash2(seed, k + 1) * 0.5);
+      const mx = cx + Math.cos(a0 + 0.5) * r * (0.9 + hash2(seed, k + 7) * 0.4);
+      const mz = cz + Math.sin(a0 + 0.5) * r * (0.9 + hash2(seed, k + 7) * 0.4);
+      const x0 = cx + Math.cos(a0) * r0;
+      const z0 = cz + Math.sin(a0) * r0;
+      const x1 = cx + Math.cos(a1) * r1;
+      const z1 = cz + Math.sin(a1) * r1;
+      if (k === 0) ctx.moveTo(toX(x0), toY(z0));
+      ctx.quadraticCurveTo(toX(mx), toY(mz), toX(x1), toY(z1));
+    }
+    ctx.closePath();
+    ctx.fill();
+  };
+  wobble(-45, -5, 20, 3);
+  wobble(55, -60, 18, 9);
+  wobble(-5, 95, 16, 14);
+  // Curved streets: concentric ring arcs (never full circles — each has
+  // gaps, the way real ring roads break for districts) and bezier
+  // connectors that bend from the boulevard toward downtown. Round caps,
+  // no straight segments, no crossings at right angles. The old code drew
+  // every CITY street as a straight line on both axes — that cross-grid
+  // is what tiled the map into squares, and it is deleted, not redrawn.
+  ctx.strokeStyle = 'rgba(58,51,64,0.55)';
   ctx.lineCap = 'round';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([3, 4]);
-  for (const s of CITY.streets) {
-    // A street's visible run: chord of the ring circle at that offset.
-    const half = Math.sqrt(Math.max(0, CITY.ringRadius * CITY.ringRadius - s * s));
-    ctx.beginPath(); ctx.moveTo(toX(-half), toY(s)); ctx.lineTo(toX(half), toY(s)); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(toX(s), toY(-half)); ctx.lineTo(toX(s), toY(half)); ctx.stroke();
-  }
-  ctx.setLineDash([]);
+  ctx.lineWidth = 2;
+  const arcRoad = (r, a0, a1) => {
+    ctx.beginPath();
+    ctx.arc(toX(0), toY(0), r * scale, a0, a1);
+    ctx.stroke();
+  };
+  arcRoad(62, -0.4, 2.2);
+  arcRoad(62, 2.9, 5.4);
+  arcRoad(108, 0.6, 2.6);
+  arcRoad(108, 3.4, 5.9);
+  arcRoad(142, -0.9, 1.1);
+  arcRoad(142, 1.9, 4.0);
+  const curveRoad = (x0, z0, cx, cz, x1, z1) => {
+    ctx.beginPath();
+    ctx.moveTo(toX(x0), toY(z0));
+    ctx.quadraticCurveTo(toX(cx), toY(cz), toX(x1), toY(z1));
+    ctx.stroke();
+  };
+  curveRoad(-150, -60, -70, -100, 0, -62);
+  curveRoad(150, 60, 80, 110, 10, 62);
+  curveRoad(-60, 150, -110, 60, -140, -10);
+  curveRoad(60, -150, 120, -80, 150, -20);
   // The ring boulevard: a true circle, the map's main drag.
+  const ringR = CITY.ringRadius * scale;
   ctx.strokeStyle = '#3a3340';
   ctx.lineWidth = 3;
   ctx.beginPath();
@@ -111,8 +177,9 @@ export function drawMinimap(canvas, view) {
     ctx.fill();
   }
   // Landmarks, packed tight the way the island packs them:
-  // the ferris wheel (gold ring), both billboards (pink squares),
-  // Casino Row (gold star), the docks (crates) and the Hideout (green dot).
+  // the ferris wheel (gold ring), both billboards (pink DOTS, never
+  // squares — builder #16: no rectangles anywhere on this map),
+  // Casino Row (gold star), the docks (a green dot) and the Hideout.
   ctx.strokeStyle = '#e8a93a';
   ctx.lineWidth = 2;
   ctx.beginPath();
@@ -120,7 +187,9 @@ export function drawMinimap(canvas, view) {
   ctx.stroke();
   ctx.fillStyle = '#ff5a8a';
   for (const bz of [-58, 40]) {
-    ctx.fillRect(toX(184) - 3, toY(bz) - 3, 6, 6);
+    ctx.beginPath();
+    ctx.arc(toX(184), toY(bz), 3.5, 0, Math.PI * 2);
+    ctx.fill();
   }
   ctx.fillStyle = '#ffd94a';
   ctx.beginPath();
@@ -130,7 +199,9 @@ export function drawMinimap(canvas, view) {
   ctx.lineWidth = 1;
   ctx.stroke();
   ctx.fillStyle = '#2a9a6a';
-  ctx.fillRect(toX(-108) - 3, toY(134) - 3, 6, 6);
+  ctx.beginPath();
+  ctx.arc(toX(-108), toY(134), 3.5, 0, Math.PI * 2);
+  ctx.fill();
   // District names, written on the map like the winners do.
   ctx.fillStyle = 'rgba(26,16,48,0.75)';
   ctx.font = 'bold 8px sans-serif';
@@ -141,10 +212,12 @@ export function drawMinimap(canvas, view) {
   ctx.fillText('CASINO ROW', toX(88), toY(-112));
   ctx.fillText('THE DOCKS', toX(-70), toY(122));
   ctx.fillText('OCEAN BLVD', toX(0), toY(150));
-  // Traffic specks.
+  // Traffic specks — round dots, never squares.
   ctx.fillStyle = 'rgba(26,16,48,0.85)';
   for (const car of view.trafficCars) {
-    ctx.fillRect(toX(car.x) - 1.75, toY(car.z) - 1.75, 3.5, 3.5);
+    ctx.beginPath();
+    ctx.arc(toX(car.x), toY(car.z), 1.75, 0, Math.PI * 2);
+    ctx.fill();
   }
   // The Hideout: a green dot, home base on the map.
   if (view.hideout) {

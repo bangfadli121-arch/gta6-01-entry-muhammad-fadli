@@ -154,12 +154,15 @@ export function buildCity(scene, theme, seed, textures) {
       t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
+    // Builder #17 — grain bumped ~1.7x (was barely visible past 30
+    // units, so distant towers read as flat pastel slabs in the title
+    // view; the plaster now reads at mid-distance too).
     for (let i = 0; i < 36; i += 1) {
       const bx2 = rnd() * 256;
       const by2 = rnd() * 256;
       const br = 18 + rnd() * 42;
       const g2 = x.createRadialGradient(bx2, by2, 0, bx2, by2, br);
-      g2.addColorStop(0, rnd() < 0.5 ? 'rgba(120,100,80,0.06)' : 'rgba(255,255,255,0.07)');
+      g2.addColorStop(0, rnd() < 0.5 ? 'rgba(120,100,80,0.10)' : 'rgba(255,255,255,0.11)');
       g2.addColorStop(1, 'rgba(120,100,80,0)');
       x.fillStyle = g2;
       x.fillRect(bx2 - br, by2 - br, br * 2, br * 2);
@@ -168,7 +171,7 @@ export function buildCity(scene, theme, seed, textures) {
       const px = rnd() * 256;
       const py = rnd() * 256;
       const pr = 0.6 + rnd() * 1.8;
-      x.fillStyle = rnd() < 0.55 ? `rgba(70,60,50,${0.05 + rnd() * 0.08})` : `rgba(255,255,255,${0.06 + rnd() * 0.08})`;
+      x.fillStyle = rnd() < 0.55 ? `rgba(70,60,50,${0.09 + rnd() * 0.13})` : `rgba(255,255,255,${0.10 + rnd() * 0.13})`;
       x.fillRect(px, py, pr, pr);
     }
     for (let i = 0; i < 14; i += 1) {
@@ -270,6 +273,56 @@ export function buildCity(scene, theme, seed, textures) {
   }
   ringDashes.count = 56;
   group.add(ringDashes);
+
+  // Builder #17 — THE DIAGONAL AVENUE (fadli: "map sama aja", layout
+  // jalan harus BERUBAH beneran). A second main drag cuts the city on
+  // the line x+z=-60, from the ring boulevard at (-145,85) to the ring
+  // at (85,-145), straight through downtown — the first road in Vice
+  // Shores that is neither a grid street nor the ring. It crosses the
+  // z=-24 chase street at x=-36 (behind the cover camera) and the z=24
+  // street at x=-84, so the chase and the driving shot both roll over
+  // a real intersection with it. Its own plane sits 0.015 above the
+  // grid streets, so the crossings never z-fight. Buildings on its path
+  // are cleared in the tower loop below (one slot per block, Casino Row
+  // exempt), the minimap draws it as a diagonal, and palms + lamps line
+  // it — the city reads different from the title camera and on the map.
+  const DIAG_C = -60; // the avenue is the line x + z = DIAG_C
+  const DIAG_CX = -30; // centre of the avenue segment (on the line)
+  const DIAG_CZ = -30;
+  const DIAG_HALF = 163; // half-length, ring crossing to ring crossing
+  const diagDist = (x, z) => Math.abs(x + z - DIAG_C) / Math.SQRT2;
+  const diagGroup = new THREE.Group();
+  diagGroup.position.set(DIAG_CX, 0, DIAG_CZ);
+  diagGroup.rotation.y = Math.PI / 4; // local +X runs (1,-1)/sqrt2
+  group.add(diagGroup);
+  const diagWalk = new THREE.Mesh(
+    new THREE.PlaneGeometry(DIAG_HALF * 2, 26),
+    new THREE.MeshStandardMaterial({ color: palette.sidewalkTint, roughness: 0.9 }),
+  );
+  diagWalk.rotation.x = -Math.PI / 2;
+  diagWalk.position.y = 0.015;
+  diagGroup.add(diagWalk);
+  const diagRoad = new THREE.Mesh(
+    new THREE.PlaneGeometry(DIAG_HALF * 2, 14),
+    ringMat,
+  );
+  diagRoad.rotation.x = -Math.PI / 2;
+  diagRoad.position.y = 0.035;
+  diagGroup.add(diagRoad);
+  const diagEdgeMat = new THREE.MeshBasicMaterial({ color: 0xfff6e0 });
+  for (const side of [-1, 1]) {
+    const edge = new THREE.Mesh(new THREE.PlaneGeometry(DIAG_HALF * 2, 0.35), diagEdgeMat);
+    edge.rotation.x = -Math.PI / 2;
+    edge.position.set(0, 0.05, side * 6.5);
+    diagGroup.add(edge);
+  }
+  const diagDashMat = new THREE.MeshBasicMaterial({ color: 0xffc93a });
+  for (let lx = -150; lx <= 150; lx += 19) {
+    const dash = new THREE.Mesh(new THREE.PlaneGeometry(5, 0.7), diagDashMat);
+    dash.rotation.x = -Math.PI / 2;
+    dash.position.set(lx, 0.05, 0);
+    diagGroup.add(dash);
+  }
 
   // Roads: one dark strip per street, both axes, plus pale sidewalk edging
   // in a sandy tone so the streets read against the blocks at golden hour.
@@ -479,6 +532,18 @@ export function buildCity(scene, theme, seed, textures) {
   // skyline ends in a curve at the ring boulevard instead of a square edge.
   // Edge blocks build smaller, so no tower corner ever pokes onto the ring.
   const windowPositions = [];
+  // Builder #17 — one stucco material per tint, cached across all
+  // towers (see the facade note in the tower loop).
+  const stuccoCache = new Map();
+  const stuccoFor = (m) => {
+    const key = m.color.getHex();
+    if (!stuccoCache.has(key)) {
+      stuccoCache.set(key, new THREE.MeshStandardMaterial({
+        map: stuccoTex, color: m.color, roughness: 0.95, metalness: 0.0,
+      }));
+    }
+    return stuccoCache.get(key);
+  };
   // Builder #12 — instanced 3D relief, collected during the tower loop
   // and drawn as a handful of instanced meshes afterwards: balcony slabs
   // + rails (every other floor, all four faces), corner pilasters on box
@@ -487,6 +552,7 @@ export function buildCity(scene, theme, seed, textures) {
   const balcSlabs = [];
   const balcRails = [];
   const balcPosts = [];
+  const balcFascia = [];
   const pilasters = [];
   // Builder #14c — one balcony = slab + OPEN railing (a thin top bar on
   // four posts), not a solid panel: the old solid 0.9-tall rail read as a
@@ -495,6 +561,11 @@ export function buildCity(scene, theme, seed, textures) {
   const pushBalcony = (x, y, z, rotY, ox, oz) => {
     balcSlabs.push([x, y, z, rotY]);
     balcRails.push([x + ox * 1.2, y + 0.6, z + oz * 1.2, rotY]);
+    // Builder #17 — a MID RAIL halfway up the railing, and a FASCIA
+    // lip hanging below the slab's front edge: the slab reads as a
+    // thick slab with a real edge, not a flat cream plate pasted on.
+    balcRails.push([x + ox * 1.2, y + 0.32, z + oz * 1.2, rotY]);
+    balcFascia.push([x + ox * 0.62, y - 0.12, z + oz * 0.62, rotY]);
     for (const k of [-1.4, -0.5, 0.5, 1.4]) {
       const alongX = rotY === 0 || rotY === Math.PI;
       balcPosts.push([
@@ -565,9 +636,18 @@ export function buildCity(scene, theme, seed, textures) {
         // lower half and the wheel's bottom rim; at 5 it is a low parapet
         // the sightlines clear.
         const nearCoverCamera = bx >= 70 && bx <= 140 && bz >= -16 && bz <= -4;
+        // Builder #17 — the VICE SHORES board's sightline: the diagonal
+        // skip reshuffled the rng stream, and a tower north of the chase
+        // street grew tall enough to hide the board's right half in the
+        // cover (the #17 first cover). Every tower in the board's
+        // sightline (bx 80..180, bz -64..-28) is capped at 8, so the
+        // board — centre y 17, bottom edge y 11 — shows whole over a
+        // low roof from the low chase camera.
+        const inViceSightline = bx >= 80 && bx <= 180 && bz >= -64 && bz <= -28;
         const h = inCoverCorridor
           ? Math.min(h0, nearCoverCamera ? 5 : 8)
           : inBoardSightline ? Math.min(h0, 7)
+            : inViceSightline ? Math.min(h0, 8)
             : byCoverStreetNorth ? Math.min(h0, 18) : h0;
         // Builder #14c — MOVE THE HOUSE OFF THE ROAD (fadli: "knp ada rmh
         // tengah jalan"). The probe puts the (133,-11) shop's centre at
@@ -585,6 +665,16 @@ export function buildCity(scene, theme, seed, textures) {
         // clear past the ring boulevard to the beach, the wheel and the
         // ocean.
         if (isShopRow && cz === 0 && bz < 0 && bz >= -16) bz += 22;
+        // Builder #17 — CLEAR THE DIAGONAL AVENUE: any slot whose
+        // centre falls on the avenue's corridor is never built, so the
+        // diagonal reads as a real street with buildings along one side,
+        // not a road painted over towers. Casino Row is exempt (the
+        // landmark district keeps its towers; the avenue ends at its
+        // edge). NOTE: skipping a slot also skips its later rng draws,
+        // so buildings after a cleared slot reshuffle heights/tints —
+        // accepted, the layout is supposed to change; everything the
+        // shots depend on is positional (corridor caps, remap, palms).
+        if (!isCasino && Math.abs(bx + bz - DIAG_C) < 26) continue;
         const mat = isCasino
           ? tintMats[Math.floor(hash2(bx + 91, bz + 7) * tintMats.length) % tintMats.length]
           : isShopRow
@@ -597,15 +687,18 @@ export function buildCity(scene, theme, seed, textures) {
         // read as blank walls from the chase camera (the #11 yellow drum).
         const isDrum = !isShopRow && !isCasino && h > 15 && hash2(bx + 77, bz + 31) > 0.6
           && !byCoverStreetNorth;
-        // Builder #14c: shops wear stucco, not the squashed tower photo —
-        // a portrait render stretched over a 13x5 shop front is what made
-        // the mid-frame row read as pasted pictures. The stucco takes the
-        // shop's own tint, so each shop keeps its colour identity.
-        const facade = isShopRow
-          ? new THREE.MeshStandardMaterial({ map: stuccoTex, color: mat.color, roughness: 0.95, metalness: 0.0 })
-          : facadeMats.length && !isDrum
-            ? facadeMats[Math.floor(hash2(bx + 51, bz + 23) * facadeMats.length) % facadeMats.length]
-            : null;
+        // Builder #17 — STUCCO EVERYWHERE, NO PHOTO FACADES (fadli:
+        // "tembok tempelan"). The tall towers used to wear the
+        // photographed art-deco renders as a texture — a portrait
+        // squashed over a wide box, printed arches and balconies with
+        // fake perspective that fights the real camera. That is exactly
+        // what read as a pasted picture. Every box tower now wears the
+        // same painted stucco as the shops (one cached material per
+        // tint, plaster grain + mottling), and the real geometry —
+        // windows with frames + sills, balconies, pilasters, cornices,
+        // set-back tiers — does the talking. The photo textures stay
+        // loaded but unused for towers.
+        const facade = isDrum ? null : stuccoFor(mat);
         // Builder #12 — REAL 3D, NOT PASTED-ON (fadli: "gedung cuma
         // tempelan"). A tall box tower is TWO tiers, not one slab: a full
         // base up to 62% of the height, then a smaller upper tier set back
@@ -620,7 +713,7 @@ export function buildCity(scene, theme, seed, textures) {
           ? new THREE.Mesh(new THREE.CylinderGeometry(w * 0.48, w * 0.54, h, 16), mat)
           : new THREE.Mesh(
             new THREE.BoxGeometry(w, h1, d),
-            facade ? [facade, facade, mat, mat, facade, facade] : mat,
+            facade || mat,
           );
         tower.position.set(bx, h1 / 2, bz);
         group.add(tower);
@@ -768,6 +861,17 @@ export function buildCity(scene, theme, seed, textures) {
             new THREE.MeshStandardMaterial({ color: 0x8a7a68, roughness: 1 }),
           );
           plinth.position.set(bx, 0.5, bz);
+          group.add(plinth);
+        }
+        // Builder #17 — a stone plinth at the base of every box tower
+        // too (shops already had one): a shadow line at street level so
+        // the wall never meets the pavement as one flat slab.
+        if (!isShopRow && !isDrum) {
+          const plinth = new THREE.Mesh(
+            new THREE.BoxGeometry(w + 0.4, 1.2, d + 0.4),
+            new THREE.MeshStandardMaterial({ color: 0x8a7a68, roughness: 1 }),
+          );
+          plinth.position.set(bx, 0.6, bz);
           group.add(plinth);
         }
         // A rooftop AC box on most towers, tucked in one corner.
@@ -1028,7 +1132,7 @@ export function buildCity(scene, theme, seed, textures) {
   // pilasters, each as one instanced draw. Slabs are cream, rails a
   // darker bronze, pilasters the same cream as the slabs, so the
   // relief reads in the golden-hour light.
-  const balcSlabGeo = new THREE.BoxGeometry(3.2, 0.3, 1.3);
+  const balcSlabGeo = new THREE.BoxGeometry(3.2, 0.5, 1.3);
   const balcSlabMat = new THREE.MeshStandardMaterial({ color: 0xf0e2c2, roughness: 0.9 });
   const balcSlabsMesh = new THREE.InstancedMesh(balcSlabGeo, balcSlabMat, Math.max(1, balcSlabs.length));
   balcSlabs.forEach(([x, y, z, rotY], i) => {
@@ -1052,6 +1156,18 @@ export function buildCity(scene, theme, seed, textures) {
   });
   balcRailsMesh.count = balcRails.length;
   group.add(balcRailsMesh);
+  // Builder #17 — the balcony fascia lips, one instanced draw.
+  const balcFasciaGeo = new THREE.BoxGeometry(3.2, 0.55, 0.14);
+  const balcFasciaMesh = new THREE.InstancedMesh(balcFasciaGeo, balcRailMat, Math.max(1, balcFascia.length));
+  balcFascia.forEach(([x, y, z, rotY], i) => {
+    dummy.position.set(x, y, z);
+    dummy.rotation.set(0, rotY, 0);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    balcFasciaMesh.setMatrixAt(i, dummy.matrix);
+  });
+  balcFasciaMesh.count = balcFascia.length;
+  group.add(balcFasciaMesh);
   // Builder #14c — the railing posts: thin bronze uprights from the slab
   // to the top bar, so the balcony reads open instead of boarded up.
   const balcPostGeo = new THREE.BoxGeometry(0.09, 0.9, 0.09);
@@ -1095,13 +1211,20 @@ export function buildCity(scene, theme, seed, textures) {
   // horizontal rails, vertical stiles) keep the cost flat no matter how
   // many windows the city wears.
   const frameMat = new THREE.MeshStandardMaterial({ color: 0x3a2f28, roughness: 0.9 });
-  const paneGeo = new THREE.BoxGeometry(1.24, 1.04, 0.16);
+  // Builder #17 — BIGGER windows with DEEPER frames + a protruding
+  // SILL under each one: the old 1.24-wide units with 0.4-deep frames
+  // read as small stickers from the street. The pane is 1.5x1.3 now,
+  // the frame stands 0.55 proud, and the sill catches a shadow line
+  // under every window, so the wall carries depth at every storey.
+  const paneGeo = new THREE.BoxGeometry(1.5, 1.3, 0.18);
   const paneMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const railHGeo = new THREE.BoxGeometry(1.36, 0.12, 0.4);
-  const railVGeo = new THREE.BoxGeometry(0.12, 1.04, 0.4);
+  const railHGeo = new THREE.BoxGeometry(1.64, 0.14, 0.55);
+  const railVGeo = new THREE.BoxGeometry(0.14, 1.3, 0.55);
+  const sillGeo = new THREE.BoxGeometry(1.7, 0.16, 0.6);
   const panes = new THREE.InstancedMesh(paneGeo, paneMat, Math.max(1, windowPositions.length));
   const railsH = new THREE.InstancedMesh(railHGeo, frameMat, Math.max(1, windowPositions.length * 2));
   const railsV = new THREE.InstancedMesh(railVGeo, frameMat, Math.max(1, windowPositions.length * 2));
+  const sills = new THREE.InstancedMesh(sillGeo, frameMat, Math.max(1, windowPositions.length));
   const winColors = palette.windowColors || [0xffd98a];
   const tmpColor = new THREE.Color();
   windowPositions.forEach(([x, y, z, rotY, sc], i) => {
@@ -1127,20 +1250,23 @@ export function buildCity(scene, theme, seed, textures) {
       mesh.setMatrixAt(idx, dummy.matrix);
     };
     place(panes, i, 0, 0, -0.02);
-    place(railsH, i * 2, 0, 0.52, 0);
-    place(railsH, i * 2 + 1, 0, -0.52, 0);
-    place(railsV, i * 2, -0.62, 0, 0);
-    place(railsV, i * 2 + 1, 0.62, 0, 0);
+    place(railsH, i * 2, 0, 0.65, 0);
+    place(railsH, i * 2 + 1, 0, -0.65, 0);
+    place(railsV, i * 2, -0.75, 0, 0);
+    place(railsV, i * 2 + 1, 0.75, 0, 0);
+    place(sills, i, 0, -0.78, 0.06);
     tmpColor.setHex(winColors[Math.floor(hash2(x, y + z) * winColors.length) % winColors.length]);
     panes.setColorAt(i, tmpColor);
   });
   panes.count = windowPositions.length;
   railsH.count = windowPositions.length * 2;
   railsV.count = windowPositions.length * 2;
+  sills.count = windowPositions.length;
   if (panes.instanceColor) panes.instanceColor.needsUpdate = true;
   group.add(panes);
   group.add(railsH);
   group.add(railsV);
+  group.add(sills);
 
   // Builder #11: the sand and the ocean are the rings built at the top of
   // this function now (beachRing + oceanRing + foamRing, all the way round
@@ -1299,6 +1425,8 @@ export function buildCity(scene, theme, seed, textures) {
       let dd = Math.abs(a - docksAngle);
       if (dd > Math.PI) dd = Math.PI * 2 - dd;
       if (dd < 0.3) continue;
+      // Builder #17 — keep ring palms off the diagonal avenue.
+      if (diagDist(px, pz) < 14) continue;
       if (isOnRoad(px, pz)) continue;
       if (hitsBuilding(buildings, px, pz, 2.6)) continue;
       spotPalm(px, pz, hash2(px, pz) > 0.5 ? 0.12 : -0.12);
@@ -1348,6 +1476,21 @@ export function buildCity(scene, theme, seed, textures) {
     if (hitsBuilding(buildings, px, pz, 2.6)) continue;
     spotPalm(px, pz, hash2(px, pz) > 0.5 ? 0.1 : -0.1, fs || 1);
   }
+  // Builder #17 — PALMS ALONG THE DIAGONAL AVENUE, both kerbs (local
+  // X along the avenue, local Z across it; rotation.y = PI/4 maps local
+  // (lx, lz) to world (-30 + (lx+lz)*0.7071, -30 + (-lx+lz)*0.7071)).
+  // The isOnRoad + hitsBuilding checks drop any palm that would stand
+  // on a crossing street or inside a tower.
+  for (let lx = -150; lx <= 150; lx += 26) {
+    for (const lz of [-10.5, 10.5]) {
+      const px = DIAG_CX + (lx + lz) * 0.7071;
+      const pz = DIAG_CZ + (-lx + lz) * 0.7071;
+      if (Math.hypot(px, pz) > 190) continue;
+      if (isOnRoad(px, pz)) continue;
+      if (hitsBuilding(buildings, px, pz, 2.6)) continue;
+      spotPalm(px, pz, hash2(px, pz) > 0.5 ? 0.1 : -0.1, 0.8);
+    }
+  }
   // One instanced draw for all trunks (two bowed segments each), one for
   // the frond stems, one for the folding blades, one for the coconut
   // clusters. A frond is a thin stem rising out-up with a wide flat blade
@@ -1376,6 +1519,18 @@ export function buildCity(scene, theme, seed, textures) {
   // (sightlines tuned in #14c/#15) — only the geometry changes.
   // Per palm: 2 trunk segments, 21 stems (10 outer + 7 mid + 4 upright),
   // 17 blades (10 outer + 7 mid), 3 coconuts.
+  // Builder #17 — THE TRUNK SIGN FIX (fadli: "batang palem patah").
+  // ROOT CAUSE: the two segments were rotated with rotation.z = +lean
+  // while their positions were computed as if the top landed at
+  // +sin(lean) — but Rz(+lean) maps +Y to (-sin, cos), so segment 1's
+  // real top sat at px, a full 2*sin(lean)*h1 sideways from where
+  // segment 2 started. The trunk was built split in two from day one.
+  // Now rotation.z = -lean/-lean2, so each segment's top lands exactly
+  // on the computed joint, and segment 2 starts 0.4 BELOW the joint
+  // (overlapping) and tapers to 0.78x, so no seam can ever open.
+  // Fronds are THREE segments now (stem + blade + drooping tip), so
+  // each frond arches in joints instead of stabbing out as one flat
+  // triangle; blades are narrower (0.6) and less squashed.
   const palmCount = palmSpots.length;
   const trunkGeo = new THREE.CylinderGeometry(0.22, 0.34, 1, 7);
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 1 });
@@ -1387,11 +1542,11 @@ export function buildCity(scene, theme, seed, textures) {
   stemGeo.translate(0, 0.5, 0);
   const stemMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
   const stems = new THREE.InstancedMesh(stemGeo, stemMat, Math.max(1, palmCount * 21));
-  const bladeGeo = new THREE.ConeGeometry(0.72, 1, 7);
-  bladeGeo.scale(1, 1, 0.42);
+  const bladeGeo = new THREE.ConeGeometry(0.6, 1, 7);
+  bladeGeo.scale(1, 1, 0.5);
   bladeGeo.translate(0, 0.5, 0);
   const bladeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
-  const blades = new THREE.InstancedMesh(bladeGeo, bladeMat, Math.max(1, palmCount * 17));
+  const blades = new THREE.InstancedMesh(bladeGeo, bladeMat, Math.max(1, palmCount * 34));
   const nutGeo = new THREE.SphereGeometry(0.28, 8, 6);
   const nutMat = new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.9 });
   const nuts = new THREE.InstancedMesh(nutGeo, nutMat, Math.max(1, palmCount * 3));
@@ -1422,14 +1577,18 @@ export function buildCity(scene, theme, seed, textures) {
     const crownX = top1x + Math.sin(lean2) * h2;
     const crownY = top1y + Math.cos(lean2) * h2 + 0.1;
     dummy.position.set(px + Math.sin(lean) * (h1 / 2), top1y / 2, pz);
-    dummy.rotation.set(0, 0, lean);
+    dummy.rotation.set(0, 0, -lean);
     dummy.scale.set(1, h1, 1);
     dummy.updateMatrix();
     trunks.setMatrixAt(trunkIndex, dummy.matrix);
     trunkIndex += 1;
-    dummy.position.set(top1x + Math.sin(lean2) * (h2 / 2), top1y + Math.cos(lean2) * (h2 / 2), pz);
-    dummy.rotation.set(0, 0, lean2);
-    dummy.scale.set(1, h2, 1);
+    // Segment 2 starts 0.4 below the joint (overlap, never a gap) and
+    // tapers to 0.78x, so the joint reads as one continuous bowed pole.
+    const dir2x = Math.sin(lean2);
+    const dir2y = Math.cos(lean2);
+    dummy.position.set(top1x + dir2x * (h2 / 2 - 0.2), top1y + dir2y * (h2 / 2 - 0.2), pz);
+    dummy.rotation.set(0, 0, -lean2);
+    dummy.scale.set(0.78, h2 + 0.4, 0.78);
     dummy.updateMatrix();
     trunks.setMatrixAt(trunkIndex, dummy.matrix);
     trunkIndex += 1;
@@ -1463,6 +1622,23 @@ export function buildCity(scene, theme, seed, textures) {
       dummy.position.set(jx, jy, jz);
       dummy.quaternion.copy(frondQuat);
       dummy.scale.set(1, len2, 1);
+      dummy.updateMatrix();
+      blades.setMatrixAt(bladeIndex, dummy.matrix);
+      blades.setColorAt(bladeIndex, pickCol(px + f * 13, pz + 5));
+      bladeIndex += 1;
+      // Builder #17 — THIRD segment: a drooping tip jointed off the
+      // blade's end, 26-46 degrees further down, half as long and
+      // narrower, so the frond arches in three joints like a real palm
+      // frond instead of ending in one flat triangle point.
+      const d2 = segDir(t2, az2);
+      const t3 = t2 + (0.45 + hash2(px + f * 31, pz + f * 3) * 0.35);
+      const az3 = az2 + (hash2(px + f * 29, pz + f * 13) - 0.5) * 0.2;
+      const len3 = len2 * 0.55;
+      frondEuler.set(t3, az3, 0);
+      frondQuat.setFromEuler(frondEuler);
+      dummy.position.set(jx + d2[0] * len2, jy + d2[1] * len2, jz + d2[2] * len2);
+      dummy.quaternion.copy(frondQuat);
+      dummy.scale.set(0.62, len3, 0.62);
       dummy.updateMatrix();
       blades.setMatrixAt(bladeIndex, dummy.matrix);
       blades.setColorAt(bladeIndex, pickCol(px + f * 13, pz + 5));
@@ -1778,27 +1954,94 @@ export function buildCity(scene, theme, seed, textures) {
     new THREE.MeshBasicMaterial({ color: 0xff2a6a }),
   );
   wheel.add(rim);
+  // Builder #17 — an inner rim ring and EIGHT spokes (was four), so
+  // the wheel reads as a wheel, not a bare circle with a cross in it.
+  const innerRim = new THREE.Mesh(
+    new THREE.TorusGeometry(12, 0.5, 8, 40),
+    new THREE.MeshBasicMaterial({ color: 0xff5a8a }),
+  );
+  wheel.add(innerRim);
   const spokeMat = new THREE.MeshBasicMaterial({ color: 0xffe9a0 });
-  for (let i = 0; i < 4; i += 1) {
+  for (let i = 0; i < 8; i += 1) {
     const spoke = new THREE.Mesh(new THREE.BoxGeometry(48, 0.5, 0.5), spokeMat);
-    spoke.rotation.z = (i * Math.PI) / 4;
+    spoke.rotation.z = (i * Math.PI) / 8;
     wheel.add(spoke);
   }
-  const gondolaCols = [0xff5a7a, 0x37e0ff, 0xffd94a, 0x7dff9a];
+  // Builder #17 — REAL GONDOLA CABINS (fadli: gondola diganti total,
+  // berwarna-warni + ADA KABIN 3D). Each cabin HANGS below its rim
+  // point on a short arm (gravity, not glued to the rim): a round
+  // coloured body, a dark glass band all the way round so the cabin
+  // reads as a room with windows from any side, a white domed roof, a
+  // dark skid underneath, and a door panel on each face. Eight cabins,
+  // eight colours.
+  const gondolaCols = [0xff5a7a, 0x37e0ff, 0xffd94a, 0x7dff9a, 0xff8a3d, 0xc93ad8, 0x2ad8c8, 0xf5f5f5];
   for (let i = 0; i < 8; i += 1) {
     const a = (i / 8) * Math.PI * 2;
-    const gondola = new THREE.Mesh(
-      new THREE.BoxGeometry(3.8, 2.8, 2.8),
-      new THREE.MeshStandardMaterial({ color: gondolaCols[i % gondolaCols.length], roughness: 0.6 }),
+    const ax = Math.cos(a) * 24;
+    const ay = Math.sin(a) * 24;
+    const col = gondolaCols[i % gondolaCols.length];
+    const cabin = new THREE.Group();
+    const arm = new THREE.Mesh(
+      new THREE.BoxGeometry(0.35, 1.8, 0.35),
+      new THREE.MeshStandardMaterial({ color: 0x3a3a44, roughness: 0.7, metalness: 0.5 }),
     );
-    gondola.position.set(Math.cos(a) * 24, Math.sin(a) * 24, 0);
-    wheel.add(gondola);
+    arm.position.set(ax, ay - 0.9, 0);
+    cabin.add(arm);
+    const cabBody = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.7, 1.7, 2.0, 12),
+      new THREE.MeshStandardMaterial({ color: col, roughness: 0.55 }),
+    );
+    cabBody.position.set(ax, ay - 2.6, 0);
+    cabin.add(cabBody);
+    const cabGlass = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.76, 1.76, 0.9, 12),
+      new THREE.MeshStandardMaterial({ color: 0x18202e, roughness: 0.12, metalness: 0.75 }),
+    );
+    cabGlass.position.set(ax, ay - 2.4, 0);
+    cabin.add(cabGlass);
+    // Window mullions: four thin verticals splitting the glass band.
+    for (let m = 0; m < 4; m += 1) {
+      const ma = (m / 4) * Math.PI * 2 + Math.PI / 4;
+      const mull = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 0.95, 0.12),
+        new THREE.MeshStandardMaterial({ color: 0xf0f0f0, roughness: 0.5 }),
+      );
+      mull.position.set(ax + Math.sin(ma) * 1.78, ay - 2.4, Math.cos(ma) * 1.78);
+      cabin.add(mull);
+    }
+    const cabRoof = new THREE.Mesh(
+      new THREE.SphereGeometry(1.7, 12, 8),
+      new THREE.MeshStandardMaterial({ color: 0xf5f0e6, roughness: 0.6 }),
+    );
+    cabRoof.scale.y = 0.55;
+    cabRoof.position.set(ax, ay - 1.6, 0);
+    cabin.add(cabRoof);
+    const cabSkid = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.5, 1.4, 0.35, 12),
+      new THREE.MeshStandardMaterial({ color: 0x2a2a32, roughness: 0.8 }),
+    );
+    cabSkid.position.set(ax, ay - 3.7, 0);
+    cabin.add(cabSkid);
+    for (const dz of [-1.72, 1.72]) {
+      const door = new THREE.Mesh(
+        new THREE.BoxGeometry(1.0, 1.5, 0.08),
+        new THREE.MeshStandardMaterial({ color: 0xf5f0e6, roughness: 0.7 }),
+      );
+      door.position.set(ax, ay - 2.7, dz);
+      cabin.add(door);
+    }
+    wheel.add(cabin);
   }
   const hub = new THREE.Mesh(
-    new THREE.SphereGeometry(1.6, 10, 8),
+    new THREE.SphereGeometry(2.2, 12, 10),
     new THREE.MeshBasicMaterial({ color: 0xff5a7a }),
   );
   wheel.add(hub);
+  const hubRing = new THREE.Mesh(
+    new THREE.TorusGeometry(3.0, 0.35, 8, 24),
+    new THREE.MeshBasicMaterial({ color: 0xffd94a }),
+  );
+  wheel.add(hubRing);
   // Builder #13 — the wheel FACES THE STREET (rotation.y = PI/2): its
   // rim used to lie in the XY plane, normal along Z, so from the chase
   // camera driving east down the beachfront street it read edge-on — a
@@ -1849,6 +2092,13 @@ export function buildCity(scene, theme, seed, textures) {
       lampPositions.push([s + 8, t]);
     }
   }
+  // Builder #17 — lamps along the diagonal avenue's north-east kerb.
+  for (const lx of [-120, -72, -24, 24, 72, 120]) {
+    lampPositions.push([
+      DIAG_CX + (lx + 9) * 0.7071,
+      DIAG_CZ + (-lx + 9) * 0.7071,
+    ]);
+  }
   for (const [lx, lz] of lampPositions) {
     const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.16, 6.5, 6), lampPoleMat);
     pole.position.set(lx, 3.25, lz);
@@ -1880,6 +2130,65 @@ export function buildCity(scene, theme, seed, textures) {
     });
     halos.count = lampPositions.length;
     group.add(halos);
+  }
+
+  // Builder #17 — SIDEWALK PROPS (fadli: trotoar beige kosong diisi).
+  // Terracotta planters with shrubs and wooden benches line the two
+  // shot streets' sidewalks and the diagonal avenue. Every spot is
+  // filtered: never inside a building, never on asphalt, never on a
+  // crosswalk corner, never within 3.5 of a palm trunk, never on the
+  // beach strip — so the furniture dresses the sidewalk instead of
+  // blocking a lane, a sightline or a palm.
+  const planterMat = new THREE.MeshStandardMaterial({ color: 0xb0703a, roughness: 0.9 });
+  const shrubMat = new THREE.MeshStandardMaterial({ color: 0x3a8a4a, roughness: 1 });
+  const shrubMat2 = new THREE.MeshStandardMaterial({ color: 0x46a854, roughness: 1 });
+  const benchWood = new THREE.MeshStandardMaterial({ color: 0x8a6a42, roughness: 0.85 });
+  const benchIron = new THREE.MeshStandardMaterial({ color: 0x2a2a32, roughness: 0.7, metalness: 0.4 });
+  function propBlocked(x, z) {
+    if (isOnRoad(x, z)) return true;
+    if (hitsBuilding(buildings, x, z, 1.8)) return true;
+    for (const [px, pz] of palmSpots) {
+      if (Math.hypot(x - px, z - pz) < 3.5) return true;
+    }
+    return false;
+  }
+  function addPlanter(x, z) {
+    if (propBlocked(x, z)) return;
+    if (x > 118 && x < 176 && z > -14 && z < -6) return; // beach strip
+    const pot = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.75, 1.7), planterMat);
+    pot.position.set(x, 0.38, z);
+    group.add(pot);
+    const rim2 = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.16, 1.9), planterMat);
+    rim2.position.set(x, 0.8, z);
+    group.add(rim2);
+    const shrub = new THREE.Mesh(new THREE.SphereGeometry(0.75, 10, 8), shrubMat);
+    shrub.position.set(x, 1.15, z);
+    group.add(shrub);
+    const shrubTop = new THREE.Mesh(new THREE.SphereGeometry(0.5, 10, 8), shrubMat2);
+    shrubTop.position.set(x + 0.25, 1.6, z - 0.15);
+    group.add(shrubTop);
+  }
+  function addBench(x, z, dir) {
+    // dir +1 faces +Z (south), -1 faces -Z (north); back on the far side.
+    if (propBlocked(x, z)) return;
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.14, 0.75), benchWood);
+    seat.position.set(x, 0.55, z);
+    group.add(seat);
+    const back = new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.8, 0.12), benchWood);
+    back.position.set(x, 1.0, z - dir * 0.35);
+    group.add(back);
+    for (const dx of [-1.0, 1.0]) {
+      const leg = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.55, 0.6), benchIron);
+      leg.position.set(x + dx, 0.28, z);
+      group.add(leg);
+    }
+  }
+  for (const x of [-106, -4, 64, 122, 140]) addPlanter(x, -15.4);
+  for (const x of [-106, -4, 64, 98, 132, 166]) addPlanter(x, 32.6);
+  for (const x of [-106, -4, 64, 122, 140]) addBench(x, -32.6, 1);
+  for (const x of [-106, -38, -4, 64, 98, 132, 166]) addBench(x, 15.4, -1);
+  for (const lx of [-110, -58, -6, 46, 98]) {
+    addPlanter(DIAG_CX + (lx - 10.5) * 0.7071, DIAG_CZ + (-lx - 10.5) * 0.7071);
   }
 
   // The Docks, south-west: stacked containers and crates by the water.

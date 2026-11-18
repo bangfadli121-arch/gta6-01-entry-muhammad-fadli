@@ -129,6 +129,60 @@ export function buildCity(scene, theme, seed, textures) {
   const facadeMats = facadeTexs.map((tex) => (tex
     ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0.05 })
     : null));
+  // Builder #14b — STUCCO, NOT A POSTER (fadli: "rumah nya kyk tempelan
+  // gambar, ganti yg lebih realistic"). The tall-tower photo renders are
+  // portraits; mapped onto a 13-wide, 5-high shop they squash into a
+  // wide flat picture of a building — printed arches and balconies with
+  // fake perspective that fights the real camera. Shops wear a painted
+  // stucco instead: plaster grain + soft mottling, no printed windows,
+  // tinted per shop by its own shopTint, so the wall itself has material
+  // and the real geometry (windows, balconies, pilasters) does the
+  // talking. One shared grayscale texture, tinted by material colour.
+  // The grain uses its own fixed-seed stream, so the city rng is
+  // untouched and every other building stays identical.
+  const stuccoTex = (() => {
+    const c = document.createElement('canvas');
+    c.width = 256;
+    c.height = 256;
+    const x = c.getContext('2d');
+    x.fillStyle = '#efe9df';
+    x.fillRect(0, 0, 256, 256);
+    let s = 0x14b;
+    const rnd = () => {
+      s |= 0; s = (s + 0x6d2b79f5) | 0;
+      let t = Math.imul(s ^ (s >>> 15), 1 | s);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+    for (let i = 0; i < 36; i += 1) {
+      const bx2 = rnd() * 256;
+      const by2 = rnd() * 256;
+      const br = 18 + rnd() * 42;
+      const g2 = x.createRadialGradient(bx2, by2, 0, bx2, by2, br);
+      g2.addColorStop(0, rnd() < 0.5 ? 'rgba(120,100,80,0.06)' : 'rgba(255,255,255,0.07)');
+      g2.addColorStop(1, 'rgba(120,100,80,0)');
+      x.fillStyle = g2;
+      x.fillRect(bx2 - br, by2 - br, br * 2, br * 2);
+    }
+    for (let i = 0; i < 5200; i += 1) {
+      const px = rnd() * 256;
+      const py = rnd() * 256;
+      const pr = 0.6 + rnd() * 1.8;
+      x.fillStyle = rnd() < 0.55 ? `rgba(70,60,50,${0.05 + rnd() * 0.08})` : `rgba(255,255,255,${0.06 + rnd() * 0.08})`;
+      x.fillRect(px, py, pr, pr);
+    }
+    for (let i = 0; i < 14; i += 1) {
+      const sx = rnd() * 256;
+      x.fillStyle = `rgba(90,75,60,${0.02 + rnd() * 0.02})`;
+      x.fillRect(sx, 0, 2 + rnd() * 4, 256);
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.wrapS = THREE.RepeatWrapping;
+    tex.wrapT = THREE.RepeatWrapping;
+    tex.anisotropy = 4;
+    return tex;
+  })();
 
   const buildings = [];
   // Builder #11: the island — a round land disc, a sand beach ring and an
@@ -432,7 +486,25 @@ export function buildCity(scene, theme, seed, textures) {
   // hundreds of extra meshes.
   const balcSlabs = [];
   const balcRails = [];
+  const balcPosts = [];
   const pilasters = [];
+  // Builder #14b — one balcony = slab + OPEN railing (a thin top bar on
+  // four posts), not a solid panel: the old solid 0.9-tall rail read as a
+  // brown sign board pasted on the wall and hid the lit window behind
+  // it. The open railing lets the window show between slab and top bar.
+  const pushBalcony = (x, y, z, rotY, ox, oz) => {
+    balcSlabs.push([x, y, z, rotY]);
+    balcRails.push([x + ox * 1.2, y + 0.6, z + oz * 1.2, rotY]);
+    for (const k of [-1.4, -0.5, 0.5, 1.4]) {
+      const alongX = rotY === 0 || rotY === Math.PI;
+      balcPosts.push([
+        x + ox * 1.2 + (alongX ? k : 0),
+        y + 0.6,
+        z + oz * 1.2 + (alongX ? 0 : k),
+        rotY,
+      ]);
+    }
+  };
   let neonCount = 0;
   for (const cx of BLOCK_CENTRES) {
     for (const cz of BLOCK_CENTRES) {
@@ -525,9 +597,15 @@ export function buildCity(scene, theme, seed, textures) {
         // read as blank walls from the chase camera (the #11 yellow drum).
         const isDrum = !isShopRow && !isCasino && h > 15 && hash2(bx + 77, bz + 31) > 0.6
           && !byCoverStreetNorth;
-        const facade = facadeMats.length && !isDrum
-          ? facadeMats[Math.floor(hash2(bx + 51, bz + 23) * facadeMats.length) % facadeMats.length]
-          : null;
+        // Builder #14b: shops wear stucco, not the squashed tower photo —
+        // a portrait render stretched over a 13x5 shop front is what made
+        // the mid-frame row read as pasted pictures. The stucco takes the
+        // shop's own tint, so each shop keeps its colour identity.
+        const facade = isShopRow
+          ? new THREE.MeshStandardMaterial({ map: stuccoTex, color: mat.color, roughness: 0.95, metalness: 0.0 })
+          : facadeMats.length && !isDrum
+            ? facadeMats[Math.floor(hash2(bx + 51, bz + 23) * facadeMats.length) % facadeMats.length]
+            : null;
         // Builder #12 — REAL 3D, NOT PASTED-ON (fadli: "gedung cuma
         // tempelan"). A tall box tower is TWO tiers, not one slab: a full
         // base up to 62% of the height, then a smaller upper tier set back
@@ -645,8 +723,7 @@ export function buildCity(scene, theme, seed, textures) {
                 if (hash2(bx + off * 3, bz + by * 2) < 0.12) continue;
                 const cx2 = bx + fd2.px + (fd2.rot === 0 || fd2.rot === Math.PI ? off : 0);
                 const cz2 = bz + fd2.pz + (fd2.rot === 0 || fd2.rot === Math.PI ? 0 : off);
-                balcSlabs.push([cx2, by, cz2, fd2.rot]);
-                balcRails.push([cx2 + fd2.ox * 1.2, by + 0.6, cz2 + fd2.oz * 1.2, fd2.rot]);
+                pushBalcony(cx2, by, cz2, fd2.rot, fd2.ox, fd2.oz);
               }
             }
           }
@@ -655,6 +732,43 @@ export function buildCity(scene, theme, seed, textures) {
               pilasters.push([bx + sx * (w / 2 - 0.15), bz + sz * (d / 2 - 0.15), h1]);
             }
           }
+        }
+        // Builder #14b — SHOPS GET REAL RELIEF TOO (fadli: "tempelan"):
+        // a shop was a bare photo box — no balconies, no pilasters, no
+        // setback — so the whole mid-frame row in the cover read as
+        // pictures pasted on boxes. Every shop now wears one balcony row
+        // just under its parapet (every face except the awning face, so
+        // no slab ever cuts through the awning stripes), corner pilasters
+        // down to the pavement, and a stone plinth at its base, so the
+        // wall carries real shadow lines from any street.
+        if (isShopRow) {
+          const shopBalY = h - 1.6;
+          const shopFaces = [
+            { len: w, rot: Math.PI, px: 0, pz: -d / 2 - 0.65, ox: 0, oz: -1 },
+            { len: d, rot: Math.PI / 2, px: w / 2 + 0.65, pz: 0, ox: 1, oz: 0 },
+            { len: d, rot: -Math.PI / 2, px: -w / 2 - 0.65, pz: 0, ox: -1, oz: 0 },
+          ];
+          for (const sf of shopFaces) {
+            const nBal = sf.len >= 11 ? 2 : 1;
+            const offs = nBal === 2 ? [-sf.len / 4, sf.len / 4] : [0];
+            for (const off of offs) {
+              if (hash2(bx + off * 3, bz + shopBalY * 2) < 0.12) continue;
+              const cx2 = bx + sf.px + (sf.rot === Math.PI || sf.rot === 0 ? off : 0);
+              const cz2 = bz + sf.pz + (sf.rot === Math.PI || sf.rot === 0 ? 0 : off);
+              pushBalcony(cx2, shopBalY, cz2, sf.rot, sf.ox, sf.oz);
+            }
+          }
+          for (const sx of [-1, 1]) {
+            for (const sz of [-1, 1]) {
+              pilasters.push([bx + sx * (w / 2 - 0.15), bz + sz * (d / 2 - 0.15), h]);
+            }
+          }
+          const plinth = new THREE.Mesh(
+            new THREE.BoxGeometry(w + 0.4, 1.0, d + 0.4),
+            new THREE.MeshStandardMaterial({ color: 0x8a7a68, roughness: 1 }),
+          );
+          plinth.position.set(bx, 0.5, bz);
+          group.add(plinth);
         }
         // A rooftop AC box on most towers, tucked in one corner.
         if (hash2(bx + 3, bz + 7) > 0.3) {
@@ -734,9 +848,12 @@ export function buildCity(scene, theme, seed, textures) {
         }
         // Builder #12 — SIGN BAND over the ground floor of low buildings:
         // a lit horizontal band above the shopfront, so the street level
-        // carries signage, not a blank wall. Shops get it always; low
-        // towers get it often.
-        if ((isShopRow || (h < 16 && hash2(bx + 23, bz + 31) > 0.4)) && h > 6) {
+        // carries signage, not a blank wall. Builder #14b: low shops
+        // (h<=6) get it always — their upper wall is short, so the band
+        // never meets a window row; taller shops skip it, because their
+        // uncapped window rows now run up to the balcony line and the
+        // band would cut across a lit window.
+        if ((isShopRow && h <= 6) || (!isShopRow && h > 6 && h < 16 && hash2(bx + 23, bz + 31) > 0.4)) {
           const band = new THREE.Mesh(
             new THREE.BoxGeometry(w * 0.7, 1.0, 0.25),
             accentMats[Math.floor(hash2(bx + 37, bz + 11) * accentMats.length) % accentMats.length],
@@ -785,7 +902,7 @@ export function buildCity(scene, theme, seed, textures) {
         // Drum towers wear their windows WRAPPED around the curved wall
         // (radius follows the drum's taper), so the drum reads lit and
         // alive instead of a blank coloured tube.
-        const addBoxWindows = (fw, fd, yBase, yTop, maxFloors) => {
+        const addBoxWindows = (fw, fd, yBase, yTop, maxFloors, litProb = palette.windowLit) => {
           const fl = maxFloors !== undefined ? maxFloors
             : Math.max(1, Math.floor((yTop - yBase) / 3.2));
           const cc = Math.max(1, Math.floor(fw / 4));
@@ -800,7 +917,7 @@ export function buildCity(scene, theme, seed, textures) {
             const run = face.axis === 'x' ? cc : ccZ;
             for (let f = 0; f < fl; f += 1) {
               for (let c = 0; c < run; c += 1) {
-                if (rng() > palette.windowLit) continue;
+                if (rng() > litProb) continue;
                 const wy = yBase + 2.2 + f * 3.2;
                 if (wy > yTop - 1) continue;
                 if (face.axis === 'x') {
@@ -831,7 +948,14 @@ export function buildCity(scene, theme, seed, textures) {
             }
           }
         } else if (isShopRow) {
-          addBoxWindows(w, d, 0, h, 1);
+          // Builder #14b: shop windows run every floor up to the balcony
+          // line, not just one floor — a 7–11 high shop with a single
+          // window row left a blank stucco band under its balcony.
+          // Builder #14b, second look: the sunset palette lights only
+          // 28% of windows, so a shop face wore one lonely square — shops
+          // light 75%, so the facades read busy at golden hour. The gate
+          // still draws one rng() per slot, so the stream is untouched.
+          addBoxWindows(w, d, 0, h, undefined, 0.75);
         } else if (isTallBox) {
           addBoxWindows(w, d, 0, h1);
           addBoxWindows(w2, d2, h1, h);
@@ -916,7 +1040,7 @@ export function buildCity(scene, theme, seed, textures) {
   });
   balcSlabsMesh.count = balcSlabs.length;
   group.add(balcSlabsMesh);
-  const balcRailGeo = new THREE.BoxGeometry(3.2, 0.9, 0.12);
+  const balcRailGeo = new THREE.BoxGeometry(3.2, 0.15, 0.12);
   const balcRailMat = new THREE.MeshStandardMaterial({ color: 0x8a7a5a, roughness: 0.8 });
   const balcRailsMesh = new THREE.InstancedMesh(balcRailGeo, balcRailMat, Math.max(1, balcRails.length));
   balcRails.forEach(([x, y, z, rotY], i) => {
@@ -928,6 +1052,19 @@ export function buildCity(scene, theme, seed, textures) {
   });
   balcRailsMesh.count = balcRails.length;
   group.add(balcRailsMesh);
+  // Builder #14b — the railing posts: thin bronze uprights from the slab
+  // to the top bar, so the balcony reads open instead of boarded up.
+  const balcPostGeo = new THREE.BoxGeometry(0.09, 0.9, 0.09);
+  const balcPostsMesh = new THREE.InstancedMesh(balcPostGeo, balcRailMat, Math.max(1, balcPosts.length));
+  balcPosts.forEach(([x, y, z, rotY], i) => {
+    dummy.position.set(x, y, z);
+    dummy.rotation.set(0, rotY, 0);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    balcPostsMesh.setMatrixAt(i, dummy.matrix);
+  });
+  balcPostsMesh.count = balcPosts.length;
+  group.add(balcPostsMesh);
   const pilGeo = new THREE.BoxGeometry(0.55, 1, 0.55);
   const pilMat = new THREE.MeshStandardMaterial({ color: 0xf0e2c2, roughness: 0.9 });
   const pilMesh = new THREE.InstancedMesh(pilGeo, pilMat, Math.max(1, pilasters.length));

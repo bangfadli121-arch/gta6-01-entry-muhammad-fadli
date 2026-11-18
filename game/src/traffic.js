@@ -86,7 +86,11 @@ export function createTraffic(scene, seed, buildings) {
     const along = range(rng, -170, 170);
     const side = chance(rng, 0.5) ? 1 : -1;
     const kind = own ? 'sports' : pick(rng, CAR_KINDS);
-    const color = own ? 0xff2a6a : pick(rng, CAR_COLORS);
+    // Builder #13 — Rico's own car is HOT magenta-pink (was 0xff2a6a):
+    // under the golden-hour sun and ACES tone mapping the old pink
+    // rendered as plain red in the cover; the magenta holds pink, like
+    // the Halcyon hero car.
+    const color = own ? 0xff35a0 : pick(rng, CAR_COLORS);
     const car = makeCarRecord(kind, color, 0, 0, 0);
     car.own = own;
     if (own) {

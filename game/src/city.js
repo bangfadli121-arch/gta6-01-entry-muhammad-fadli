@@ -475,16 +475,28 @@ export function buildCity(scene, theme, seed, textures) {
         // footprints are untouched: only heights change.
         const inCoverCorridor = bx >= 40 && bx <= 175 && bz >= -16 && bz <= -4;
         const byCoverStreetNorth = bx >= 40 && bx <= 175 && bz >= -40 && bz <= -28;
+        // Builder #13 — the FLAMINGO board's sightline: the (155,11)
+        // shop's roof (10.3) cut the board's lower half from the 9-second
+        // camera, the same cut the #12 board suffered from a tower roof.
+        // Shops south of the chase street in the board's sightline
+        // (bx 140–175, bz 4–20) are capped at 7, so the board shows whole
+        // over a low parapet instead of behind a roof.
+        const inBoardSightline = bx >= 140 && bx <= 175 && bz >= 4 && bz <= 20;
         // Builder #12, third look: the corridor tower nearest the 8-second
         // camera — (85,-11), only 20 units ahead — is short (8) but so
         // close it spans 8–48° of the frame and hides the whole FLAMINGO
         // board behind it. Slots right beside the camera (bx 70–115) are
         // capped at 5, so they read as a low corner shop and the board
         // shows over its roof; the rest of the corridor stays at 8.
-        const nearCoverCamera = bx >= 70 && bx <= 115 && bz >= -16 && bz <= -4;
+        // Builder #13: the cap-5 zone runs to bx 140 — at the 7-second
+        // drive the (133,-13) shop's roof (at 8) cut the FLAMINGO board's
+        // lower half and the wheel's bottom rim; at 5 it is a low parapet
+        // the sightlines clear.
+        const nearCoverCamera = bx >= 70 && bx <= 140 && bz >= -16 && bz <= -4;
         const h = inCoverCorridor
           ? Math.min(h0, nearCoverCamera ? 5 : 8)
-          : byCoverStreetNorth ? Math.min(h0, 18) : h0;
+          : inBoardSightline ? Math.min(h0, 7)
+            : byCoverStreetNorth ? Math.min(h0, 18) : h0;
         const mat = isCasino
           ? tintMats[Math.floor(hash2(bx + 91, bz + 7) * tintMats.length) % tintMats.length]
           : isShopRow
@@ -1222,18 +1234,30 @@ export function buildCity(scene, theme, seed, textures) {
     return tex;
   }
   const boardPoleMat = new THREE.MeshStandardMaterial({ color: 0x2a2a32, roughness: 0.7, metalness: 0.5 });
-  function addBillboard(z, art, spec, glowColor) {
-    for (const dz of [-10, 10]) {
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 12.5, 8), boardPoleMat);
-      pole.position.set(184, 6.25, z + dz);
-      group.add(pole);
+  // Builder #13 — a billboard is a GROUP with a yaw (rotY), so its face
+  // can turn toward the chase camera instead of standing square to the
+  // street: square-on, the FLAMINGO board sat ~50 degrees off-axis from
+  // the cover camera and read foreshortened and half out of frame. The
+  // group's local -X face is the painted face; rotY turns its normal
+  // toward the camera (FLAMINGO -PI/4 faces south-west down the street,
+  // VICE +0.4 faces north-west). Poles, glow and light ride in the group.
+  function addBillboard(x, z, rotY, w, h, cy, art, spec, glowColor) {
+    const boardGroup = new THREE.Group();
+    boardGroup.position.set(x, 0, z);
+    boardGroup.rotation.y = rotY;
+    group.add(boardGroup);
+    const poleH = cy + h / 2;
+    for (const dz of [-(w / 2 - 1), w / 2 - 1]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, poleH, 8), boardPoleMat);
+      pole.position.set(0, poleH / 2, dz);
+      boardGroup.add(pole);
     }
     const board = new THREE.Mesh(
-      new THREE.BoxGeometry(0.6, 12, 28),
+      new THREE.BoxGeometry(0.6, h, w),
       new THREE.MeshBasicMaterial({ map: paintBoard(art, spec), toneMapped: false }),
     );
-    board.position.set(184, 17, z);
-    group.add(board);
+    board.position.set(0, cy, 0);
+    boardGroup.add(board);
     // The billboard glows: a compact additive halo sprite floating just
     // in front of the board, and one real point light spilling neon onto
     // the promenade palms and sand, so the board reads as a light source,
@@ -1242,21 +1266,27 @@ export function buildCity(scene, theme, seed, textures) {
     // the cover frame. (Physical light units: intensity 80 at decay 1.6
     // throws a visible wash out to ~30 units.)
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(), color: glowColor, transparent: true, opacity: 0.5,
+      map: makeGlowTexture(), color: glowColor, transparent: true, opacity: 0.45,
       blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
     }));
-    glow.position.set(182.5, 17, z);
-    glow.scale.set(52, 40, 1);
-    group.add(glow);
+    glow.position.set(-1.5, cy, 0);
+    glow.scale.set(w * 1.5, h * 2.6, 1);
+    boardGroup.add(glow);
     const light = new THREE.PointLight(glowColor, 80, 80, 1.6);
-    light.position.set(180, 16, z);
-    group.add(light);
+    light.position.set(-4, cy - 1, 0);
+    boardGroup.add(light);
   }
-  addBillboard(-58, textures && textures.billboardVice ? textures.billboardVice.image : null, {
+  addBillboard(184, -58, 0.4, 28, 12, 17, textures && textures.billboardVice ? textures.billboardVice.image : null, {
     panel: [26, 26, 460, 158], title: 'VICE SHORES', titleSize: 62, titleY: 100,
     sub: 'RIDE THE SUNSET', subY: 148, tag: 'PALMS · NEON · NO SPEED LIMIT', tagY: 210,
   }, 0xff5a7a);
-  addBillboard(40, textures && textures.billboardFlamingo ? textures.billboardFlamingo.image : null, {
+  // Builder #13 — FLAMINGO FM, BIG and turned toward the chase: 40 wide
+  // (was 28) and 16 tall at (180, 26), yawed -PI/4 so its face is nearly
+  // frontal from the cover camera instead of 50 degrees off-axis, and
+  // moved south of the wheel's sightline (z 13..39) so it never hides the
+  // wheel — it stands beside the wheel's lower rim, not over it. The
+  // whole board, lettering included, now sits inside the cover frame.
+  addBillboard(180, 26, -Math.PI / 4, 40, 16, 18, textures && textures.billboardFlamingo ? textures.billboardFlamingo.image : null, {
     panel: [16, 4, 480, 112], title: 'FLAMINGO FM', titleSize: 56, titleY: 76,
     sub: 'NEON NIGHTS · OCEAN DRIVE', subY: 106, tag: 'PINK HORIZON · LIVE', tagY: 210, tagAlign: 'left',
   }, 0xff5ad8);
@@ -1299,6 +1329,14 @@ export function buildCity(scene, theme, seed, textures) {
     new THREE.MeshBasicMaterial({ color: 0xff5a7a }),
   );
   wheel.add(hub);
+  // Builder #13 — the wheel FACES THE STREET (rotation.y = PI/2): its
+  // rim used to lie in the XY plane, normal along Z, so from the chase
+  // camera driving east down the beachfront street it read edge-on — a
+  // thin pink arc with floating gondolas, never a wheel. Turned to face
+  // west, the full circle stands at the end of the street in the cover
+  // and driving frames. From the title camera (south, looking NE) it
+  // still reads as a wheel (an ellipse ~40 degrees off face-on).
+  wheel.rotation.y = Math.PI / 2;
   wheel.position.set(178, 28, -9);
   group.add(wheel);
   // A soft gold halo over the wheel's hub, so the landmark shimmers at
@@ -1312,13 +1350,17 @@ export function buildCity(scene, theme, seed, textures) {
   wheelGlow.position.set(178, 28, -9);
   wheelGlow.scale.set(58, 58, 1);
   group.add(wheelGlow);
-  for (const dz of [-9, 9]) {
+  // Builder #13: the legs splay along X now — the wheel plane turned to
+  // face the street, so the A-frame must stand in the wheel's plane (east
+  // / west of the hub), not across it. A leg at x=178+dx leans back toward
+  // the hub by rotation.z = dx * 0.35 / 9.
+  for (const dx of [-9, 9]) {
     const leg = new THREE.Mesh(
       new THREE.BoxGeometry(1.4, 31, 1.4),
       new THREE.MeshStandardMaterial({ color: 0x3a3a44, roughness: 0.7, metalness: 0.5 }),
     );
-    leg.position.set(178, 15.5, -9 + dz);
-    leg.rotation.x = dz > 0 ? -0.35 : 0.35;
+    leg.position.set(178 + dx, 15.5, -9);
+    leg.rotation.z = (dx * 0.35) / 9;
     group.add(leg);
   }
 

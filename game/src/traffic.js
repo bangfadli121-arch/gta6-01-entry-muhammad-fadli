@@ -11,16 +11,20 @@ import { CITY, CAR } from './config.js';
 import { createRandom, range, intIn, pick, chance } from './random.js';
 import { createCarMesh, createWalkerMesh, syncCarMesh, syncWalkerMesh, makeCarRecord, CAR_COLORS, CAR_KINDS } from './vehicles.js';
 
-const DRIVE_COUNT = 14;
+const DRIVE_COUNT = 20;
 const PARKED_COUNT = 10;
-const PED_COUNT = 16;
+const PED_COUNT = 26;
 
 const SHIRTS = [0xd83a3a, 0x2a6fd8, 0xe8b93a, 0x3aa84f, 0xe8e8e8, 0x7a3ad8, 0xd86a2a];
 const PANTS = [0x222226, 0x3a3a4a, 0x5a4a3a, 0x2a2a32];
 
 function streetLane(street, direction) {
   // Right-hand traffic: drive on the right side of the street's centre.
-  return street + (direction > 0 ? 3.4 : -3.4);
+  // Builder #11: 2.5, not 3.4 — with the pitch-48 slots 13 from the
+  // street centre, the old lane put the car 9.6 from a tower corner,
+  // inside its collision box (hd up to 10 + car radius 2.4). At 2.5
+  // the lane clears every capped tower (hd 7) by a unit.
+  return street + (direction > 0 ? 2.5 : -2.5);
 }
 
 export function createTraffic(scene, seed, buildings) {
@@ -35,7 +39,7 @@ export function createTraffic(scene, seed, buildings) {
     const direction = chance(rng, 0.5) ? 1 : -1;
     const kind = pick(rng, ['sedan', 'sedan', 'coupe', 'taxi', 'van', 'sports']);
     const color = pick(rng, CAR_COLORS);
-    const along = range(rng, -190, 190);
+    const along = range(rng, -175, 175);
     const car = makeCarRecord(kind, color, 0, 0, 0);
     car.axis = axis;
     car.street = street;
@@ -79,7 +83,7 @@ export function createTraffic(scene, seed, buildings) {
   function addParkedCar(own) {
     const street = pick(rng, CITY.streets);
     const axis = chance(rng, 0.5) ? 'x' : 'z';
-    const along = range(rng, -180, 180);
+    const along = range(rng, -170, 170);
     const side = chance(rng, 0.5) ? 1 : -1;
     const kind = own ? 'sports' : pick(rng, CAR_KINDS);
     const color = own ? 0xff2a6a : pick(rng, CAR_COLORS);
@@ -88,11 +92,11 @@ export function createTraffic(scene, seed, buildings) {
     if (own) {
       // Rico's own car waits by the Hideout, nose east, in the right-hand
       // lane of the street — clear of the Hideout's walls, so it can drive.
-      car.x = 35;
-      car.z = -141.6;
+      car.x = 30;
+      car.z = -116.6;
       car.heading = 0;
       car.axis = 'x';
-      car.street = -145;
+      car.street = -120;
       car.along = 35;
     } else {
       if (axis === 'x') {
@@ -118,7 +122,7 @@ export function createTraffic(scene, seed, buildings) {
   function addPedestrian() {
     const street = pick(rng, CITY.streets);
     const axis = chance(rng, 0.5) ? 'x' : 'z';
-    const along = range(rng, -190, 190);
+    const along = range(rng, -175, 175);
     const side = chance(rng, 0.5) ? 1 : -1;
     const ped = {
       axis,
@@ -203,12 +207,12 @@ export function createTraffic(scene, seed, buildings) {
 
     reset() {
       for (const car of cars) {
-        car.along = range(rng, -190, 190);
+        car.along = range(rng, -175, 175);
         car.speed = car.cruise;
         placeCar(car);
       }
       for (const ped of peds) {
-        ped.along = range(rng, -190, 190);
+        ped.along = range(rng, -175, 175);
         placePed(ped);
       }
     },
@@ -226,16 +230,16 @@ export function createTraffic(scene, seed, buildings) {
         car.speed += (want - car.speed) * Math.min(1, 2.2 * dt);
         if (car.speed < 0.05 && want === 0) car.speed = 0;
         car.along += car.direction * car.speed * dt;
-        if (car.along > 205) car.along = -205;
-        if (car.along < -205) car.along = 205;
+        if (car.along > 185) car.along = -185;
+        if (car.along < -185) car.along = 185;
         placeCar(car);
         syncCarMesh(car.mesh, car, dt);
       }
       // Pedestrians: stroll, pause at corners, step aside from the player.
       for (const ped of peds) {
         ped.along += ped.direction * ped.speed * dt;
-        if (ped.along > 205) ped.along = -205;
-        if (ped.along < -205) ped.along = 205;
+        if (ped.along > 185) ped.along = -185;
+        if (ped.along < -185) ped.along = 185;
         if (player) {
           const d = Math.hypot(player.x - ped.x, player.z - ped.z);
           if (d < 3 && !player.inCar) {

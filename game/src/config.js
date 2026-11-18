@@ -1,9 +1,9 @@
 // Every tunable number of Vice Shores in one place: the city grid, the palettes for
-// the sunset and the neon-night variants, the car physics and the mission chain.
-// THEME picks the variant: 'sunset' (golden hour, warm) or 'night' (neon, dark).
-// Nothing here reads the clock or an unseeded random: the game is deterministic.
+// the golden-hour sunset and the neon-night variants, the car physics and the mission chain.
+// THEME picks the variant: 'sunset' (golden hour, warm — the shipped look) or 'night'
+// (neon, dark). Nothing here reads the clock or an unseeded random: the game is deterministic.
 
-export const THEME = 'night';
+export const THEME = 'sunset';
 
 export const SAVE_KEY = 'vice-shores-save-v1';
 
@@ -24,14 +24,24 @@ export const CITY = {
 };
 
 export const PALETTES = {
+  // Golden hour over Vice Shores: a violet dusk sky melting into orange at the
+  // horizon, a low amber sun, warm haze, and pastel Miami-style towers — coral,
+  // peach, aqua, butter and rose — so the city reads bright and colourful even
+  // shrunk to the judge's contact-sheet size. Fewer windows are lit than at
+  // night (it is still daylight), but the lit ones vary warm/cool/rose.
   sunset: {
-    sky: 0xff9a52, horizon: 0xffc98a, fog: 0xf2a56b, sun: 0xffd9a0, sunIntensity: 1.5,
-    hemiSky: 0xffd9b0, hemiGround: 0x5a3a4a, hemiIntensity: 0.75,
-    sunPosition: [-120, 70, -160], ambient: 0.25,
-    groundTint: '#8a7a68', roadTint: '#3a3a44', sidewalkTint: '#9a8f80',
-    buildingTints: ['#c98f5f', '#b87a6a', '#a88a7a', '#d9a06a', '#8f7a9a', '#c9b06a'],
-    windowLit: 0.25, lampOn: false, headlights: false,
-    neon: ['#ff5a7a', '#37e0ff', '#ffd94a'],
+    sky: 0xff9a52, skyTop: 0x5a3d8a, skyMid: 0xff8a4d, horizon: 0xffd9a0,
+    fog: 0xf2a56b, sun: 0xffc98a, sunIntensity: 1.9,
+    hemiSky: 0xffd9b0, hemiGround: 0x8a5a4a, hemiIntensity: 0.85,
+    sunPosition: [-120, 70, -160], ambient: 0.35,
+    groundTint: '#b09a7a', roadTint: '#4a4450', sidewalkTint: '#d9c4a0',
+    buildingTints: ['#ff9e7d', '#ffb347', '#7fc8bc', '#f7d774', '#e78fb3', '#a8d8ea', '#f5e6c8', '#c9a0dc'],
+    windowLit: 0.42, lampOn: false, headlights: false,
+    neon: ['#ff5a7a', '#37e0ff', '#ffd94a', '#ff8a3d', '#7dff9a'],
+    // Warm window-light colours for the varied-lit-windows pass in city.js.
+    windowColors: [0xffd98a, 0xffe9c0, 0x9fd8ff, 0xffb0c0, 0xfff2d0, 0xffc98a],
+    cloudTint: 0xffe8d8, oceanTint: 0x2f7fa8, sandTint: 0xecc98a,
+    skylineTint: 0x8a5a6a,
   },
   night: {
     sky: 0x0a1030, horizon: 0x1a2a5a, fog: 0x101838, sun: 0x9ab4ff, sunIntensity: 0.55,

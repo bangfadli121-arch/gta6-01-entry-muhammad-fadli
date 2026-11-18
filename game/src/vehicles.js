@@ -18,15 +18,16 @@ export const CAR_COLORS = [
   0xff8a3d, 0xc93ad8, 0xf5f5f5, 0x3ad8ff, 0xff9e2a, 0x9a3ad8,
 ];
 
-// Lengths by kind: a truck is long, a sports car low and short.
+// Lengths by kind: a truck is long, a sports car low and short. Builder #9:
+// bodies sit lower and slimmer, so the cars read sleek instead of boxy.
 const KIND_SIZE = {
-  sedan: { length: 4.4, width: 2.0, height: 0.62, cabin: 0.55 },
-  coupe: { length: 4.1, width: 1.9, height: 0.55, cabin: 0.5 },
-  sports: { length: 4.3, width: 2.0, height: 0.48, cabin: 0.42 },
-  taxi: { length: 4.4, width: 2.0, height: 0.62, cabin: 0.55 },
+  sedan: { length: 4.4, width: 1.9, height: 0.55, cabin: 0.5 },
+  coupe: { length: 4.1, width: 1.85, height: 0.48, cabin: 0.45 },
+  sports: { length: 4.3, width: 1.9, height: 0.42, cabin: 0.38 },
+  taxi: { length: 4.4, width: 1.9, height: 0.55, cabin: 0.5 },
   van: { length: 5.2, width: 2.1, height: 1.05, cabin: 0.9 },
   truck: { length: 6.4, width: 2.3, height: 1.0, cabin: 0.85 },
-  police: { length: 4.5, width: 2.0, height: 0.62, cabin: 0.55 },
+  police: { length: 4.5, width: 1.95, height: 0.55, cabin: 0.5 },
 };
 
 function box(w, h, d, color, emissive = 0, emissiveIntensity = 0) {
@@ -69,13 +70,41 @@ export function createCarMesh(kind, color) {
   body.position.y = 0.55;
   group.add(body);
 
-  // Cabin: set back a little, narrower, with dark glass.
+  // Cabin: set back a little, narrower, with dark glass. The glass is
+  // blue-tinted and glossy, and the cabin sits lower than the old boxy
+  // one, so the roofline slopes instead of standing square.
   const cabin = box(size.length * 0.48, size.cabin, size.width * 0.86, 0x101018);
   cabin.material = new THREE.MeshStandardMaterial({
-    color: 0x101018, roughness: 0.15, metalness: 0.7,
+    color: 0x18202e, roughness: 0.12, metalness: 0.75,
   });
   cabin.position.set(-size.length * 0.06, 0.55 + size.height / 2 + size.cabin / 2 - 0.05, 0);
   group.add(cabin);
+
+  // A sloped nose at the front and a chrome bumper strip, so the car has
+  // a face instead of a flat front wall; side skirts darken the sills.
+  const nose = box(0.8, size.height * 0.55, size.width * 0.92, paint);
+  nose.position.set(size.length / 2 + 0.15, 0.5, 0);
+  nose.rotation.z = -0.25;
+  group.add(nose);
+  const bumper = box(0.1, 0.14, size.width * 0.94, 0xd8d8e0);
+  bumper.material = new THREE.MeshStandardMaterial({ color: 0xd8d8e0, roughness: 0.25, metalness: 0.9 });
+  bumper.position.set(size.length / 2 + 0.52, 0.4, 0);
+  group.add(bumper);
+  const skirt = box(size.length * 0.8, 0.12, size.width + 0.04, 0x14141a);
+  skirt.position.y = 0.3;
+  group.add(skirt);
+
+  // A rear spoiler on the sporty kinds, on two small struts.
+  if (kind === 'sports' || kind === 'coupe') {
+    const spoiler = box(0.45, 0.07, size.width * 0.9, paint);
+    spoiler.position.set(-size.length / 2 - 0.1, 0.55 + size.height / 2 + 0.32, 0);
+    group.add(spoiler);
+    for (const dz of [-size.width * 0.3, size.width * 0.3]) {
+      const strut = box(0.07, 0.3, 0.07, 0x14141a);
+      strut.position.set(-size.length / 2 - 0.1, 0.55 + size.height / 2 + 0.16, dz);
+      group.add(strut);
+    }
+  }
 
   // A taxi sign, a truck bed, or a police light bar on the roof.
   let barRed = null;

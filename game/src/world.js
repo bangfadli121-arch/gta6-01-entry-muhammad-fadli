@@ -12,7 +12,7 @@
 // state, hud, renderer, player, traffic, police, combat, missions, courier
 // and briefcase. Everything else is internal.
 
-import { CITY, CAR, PLAYER, WANTED, MISSIONS, HIDEOUT, START_CASH, SAVE_KEY } from './config.js';
+import { CITY, CAR, PLAYER, WANTED, MISSIONS, HIDEOUT, DOCKS, START_CASH, SAVE_KEY } from './config.js';
 import { ACTION_ENTER, ACTION_PUNCH, ACTION_RELOAD, ACTION_MUTE } from './input.js';
 import { createHud } from './hud.js';
 import { createRenderer } from './render.js';
@@ -25,7 +25,7 @@ import { createPolice } from './police.js';
 import { createMissions } from './missions.js';
 import { createCombat } from './combat.js';
 
-const SPAWN = { x: 29, z: -141.6, heading: 0 };
+const SPAWN = { x: 24, z: -116.6, heading: 0 };
 
 export function createGame(canvas, theme, seed, textures) {
   const renderer = createRenderer(canvas, theme, textures);
@@ -57,6 +57,10 @@ export function createGame(canvas, theme, seed, textures) {
   let wanted = 0;
   let wantedTimer = 0;
   let crashTimer = 0;
+  let carCondition = 100;
+  let driftTime = 0;
+  let lastDriftShow = -10;
+  let nearMissTimer = 0;
   let saveTimer = 0;
   let muted = false;
 
@@ -129,6 +133,9 @@ export function createGame(canvas, theme, seed, textures) {
     setWanted(0);
     wantedTimer = 0;
     crashTimer = 0;
+    carCondition = 100;
+    driftTime = 0;
+    nearMissTimer = 0;
     state.time = 0;
     missions.reset();
     police.reset();
@@ -218,6 +225,7 @@ export function createGame(canvas, theme, seed, textures) {
     if (hit) {
       if (Math.abs(car.speed) > 18 && crashTimer <= 0) {
         const hurt = Math.round((Math.abs(car.speed) - 18) * 0.7);
+        carCondition = Math.max(0, carCondition - hurt);
         damagePlayer(hurt, 'crash');
         audio.crash(Math.min(1, Math.abs(car.speed) / CAR.maxSpeed));
         particles.burst(car.x, 0.8, car.z, 14, 0xffa03a, 4, 0.6);
@@ -232,9 +240,14 @@ export function createGame(canvas, theme, seed, textures) {
     car.x = clamped.x;
     car.z = clamped.z;
 
-    // Shunt the traffic: a sideswipe slows both cars and can hurt.
+    // Shunt the traffic: a sideswipe slows both cars and can hurt. A fast
+    // pass that only just misses is a near miss, not a crash.
     for (const other of traffic.cars) {
       const d = Math.hypot(other.x - car.x, other.z - car.z);
+      if (d >= 4.2 && d < 6.5 && Math.abs(car.speed) > 12 && nearMissTimer <= 0) {
+        nearMissTimer = 3;
+        hud.showFeedback('NEAR MISS', '+$250');
+      }
       if (d < 4.2 && d > 0.01) {
         const push = (4.2 - d) / 2;
         const px = (car.x - other.x) / d;
@@ -262,6 +275,14 @@ export function createGame(canvas, theme, seed, textures) {
     if (axes.handbrake && Math.abs(car.speed) > 8) {
       particles.dust(car.x, car.z);
       if (Math.floor(state.time * 8) % 2 === 0) audio.skid();
+      // Drifting: hold the handbrake at speed and the feedback counts up.
+      driftTime += dt;
+      if (driftTime > 0.6 && state.time - lastDriftShow > 0.5) {
+        lastDriftShow = state.time;
+        hud.showFeedback(`DRIFT x${1 + Math.floor(driftTime)}`, '');
+      }
+    } else {
+      driftTime = 0;
     }
     player.x = car.x;
     player.z = car.z;
@@ -337,11 +358,16 @@ export function createGame(canvas, theme, seed, textures) {
   }
 
   // The district name under the minimap, from the player's position.
+  // Builder #11: radius-based, so the island's districts read round —
+  // the beach ring, the docks, Casino Row, the Hideout, Coral Strand.
   function districtName(x, z) {
-    if (x >= CITY.beachX) return 'PALM BEACH';
-    if (x <= -120 && z >= 110) return 'THE DOCKS';
+    const r = Math.hypot(x, z);
+    if (r >= CITY.beachInner) return 'PALM BEACH';
+    if (Math.hypot(x - DOCKS.x, z - DOCKS.z) < 28) return 'THE DOCKS';
+    if (Math.hypot(x - CITY.casino.x, z - CITY.casino.z) < 30) return 'CASINO ROW';
     if (Math.hypot(x - HIDEOUT.x, z - HIDEOUT.z) < 25) return 'HIDEOUT';
-    if (Math.abs(x) < 70 && Math.abs(z) < 70) return 'DOWNTOWN';
+    if (x >= 120) return 'CORAL STRAND';
+    if (r < 60) return 'DOWNTOWN';
     if (z >= 110) return 'SOUTHSHORE';
     if (x <= -120) return 'WESTSIDE';
     return 'VICE SHORES';
@@ -355,7 +381,9 @@ export function createGame(canvas, theme, seed, textures) {
     const mission = missions.missionIndex >= 0 ? MISSIONS[missions.missionIndex] : null;
     hud.setStage(mission ? missions.stepIndex + 1 : 0, mission ? mission.steps.length : 0);
     hud.setAmmo(player.ammo);
-    hud.setSpeed(Math.abs(player.speed) * 3.6, player.inCar);
+    const gear = player.inCar ? 1 + Math.min(4, Math.floor(Math.abs(player.speed) / 9)) : 1;
+    hud.setSpeed(Math.abs(player.speed) * 3.6, player.inCar, player.inCar ? carCondition : 100, gear);
+    hud.setRespect(4, 456 + Math.max(0, missions.missionIndex) * 200 + missions.stepIndex * 50);
     hud.setCrosshair(!player.inCar);
     // The VSPD response list: each live unit's call sign, distance and
     // chase status, all read off the police module's own unit state.
@@ -396,10 +424,25 @@ export function createGame(canvas, theme, seed, textures) {
     });
   }
 
+  // The VSPD helicopter circles over the player, rotor spinning, so the
+  // chase always has a chopper in the sky. Its path is a pure function
+  // of the clock, so the staged shots always catch it in the same place.
+  function updateHelicopter() {
+    const heli = city.helicopter;
+    if (!heli) return;
+    heli.visible = true;
+    const a = state.time * 0.22 + 1.2;
+    heli.position.set(player.x + Math.cos(a) * 42, 36, player.z + Math.sin(a) * 42);
+    heli.rotation.y = -(a + Math.PI / 2);
+    city.heliRotor.rotation.y = state.time * 28;
+    city.heliTailRotor.rotation.x = state.time * 40;
+  }
+
   // ---- the step ----------------------------------------------------------
   function update(dt, axes, actions, shooting) {
     state.time += dt;
     crashTimer = Math.max(0, crashTimer - dt);
+    nearMissTimer = Math.max(0, nearMissTimer - dt);
     if (actions) audio.resume();
     if (actions & ACTION_MUTE) {
       muted = !muted;
@@ -472,6 +515,7 @@ export function createGame(canvas, theme, seed, textures) {
       { x: player.x, z: player.z, heading: player.heading, inCar: player.inCar, speed: player.speed },
       dt,
     );
+    updateHelicopter();
     syncHud(false);
 
     saveTimer += dt;
@@ -490,6 +534,7 @@ export function createGame(canvas, theme, seed, textures) {
     state.time += dt;
     traffic.update(dt, null);
     particles.update(dt);
+    updateHelicopter();
     renderer.setEstablishing();
     if (renderEnabled) renderer.render();
   }

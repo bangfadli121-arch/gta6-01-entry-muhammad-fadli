@@ -14,8 +14,8 @@ import * as THREE from 'three';
 export const CAR_KINDS = ['sedan', 'coupe', 'sports', 'taxi', 'van', 'truck', 'police'];
 
 export const CAR_COLORS = [
-  0xd83a3a, 0x2a6fd8, 0xe8b93a, 0x3aa84f, 0xe8e8e8, 0x222226,
-  0xd86a2a, 0x7a3ad8, 0x3ad8c8, 0xb8b8c8,
+  0xff2a6a, 0xe83a3a, 0xffd94a, 0x2ad8c8, 0x2a6fd8, 0x7dff5a,
+  0xff8a3d, 0xc93ad8, 0xf5f5f5, 0x3ad8ff, 0xff9e2a, 0x9a3ad8,
 ];
 
 // Lengths by kind: a truck is long, a sports car low and short.
@@ -34,8 +34,8 @@ function box(w, h, d, color, emissive = 0, emissiveIntensity = 0) {
     color,
     emissive,
     emissiveIntensity,
-    roughness: 0.45,
-    metalness: 0.55,
+    roughness: 0.32,
+    metalness: 0.65,
   });
   const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   return mesh;

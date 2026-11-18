@@ -1217,12 +1217,53 @@ export function buildCity(scene, theme, seed, textures) {
     group.add(figure);
   }
 
-  // Palms — builder #9 rebuild: NO cones. Each palm is a leaning trunk
-  // with a crown of nine long drooping fronds, two greens, varied height
-  // (5.5–9) and lean, on both kerbs of the beachfront avenue and the
-  // east-west streets, so the chase camera always has palms at the frame's
-  // edges. All fronds, trunks and coconuts are three instanced draws, so
-  // sixty palms cost no more than three meshes. A palm is only planted
+  // Builder #16 — ORGANIC GREEN BLOCKS (fadli: kota jangan kotak-kotak).
+  // The drivable street network stays as it is — traffic, police,
+  // missions and the shots all drive on those streets, so re-laying them
+  // would break play — but the blocks stop reading as bare tan squares:
+  // every block has two diagonal slots with no building in them, and
+  // where one of those slots is clear a round lawn (a flattened,
+  // rotated ellipse, varied green) sits in it, so the city reads as
+  // green organic shapes between the towers from the title view. Pure
+  // decoration at ground level: no collision, no rng stream, fixed hash
+  // shapes. The rows beside the cover and driving streets are left
+  // alone, so the tuned shot compositions never change.
+  const lawnMat = new THREE.MeshStandardMaterial({ color: 0x4f9a58, roughness: 1 });
+  const lawnMat2 = new THREE.MeshStandardMaterial({ color: 0x5da864, roughness: 1 });
+  for (const cx of BLOCK_CENTRES) {
+    for (const cz of BLOCK_CENTRES) {
+      if (Math.hypot(cx, cz) > 130) continue;
+      if (cx >= 116) continue; // beachfront shop row stays sand + shops
+      if (cz === 0 || cz === -48 || cz === 48) continue; // shot-street rows
+      if (cx === 96 && cz === -96) continue; // Casino Row keeps its plaza
+      if (Math.hypot(cx + 108, cz - 134) < 40) continue; // the docks
+      for (const [ox, oz] of [[-11, -11], [11, 11], [-11, 11], [11, -11]]) {
+        const lx = cx + ox;
+        const lz = cz + oz;
+        if (hash2(lx + 5, lz + 11) < 0.45) continue; // not every slot: variety
+        if (hitsBuilding(buildings, lx, lz, 4.5)) continue;
+        const lr = 4.5 + hash2(lx, lz) * 1.5;
+        const lawn = new THREE.Mesh(
+          new THREE.CircleGeometry(lr, 26),
+          hash2(lx + 2, lz + 3) > 0.5 ? lawnMat : lawnMat2,
+        );
+        lawn.rotation.x = -Math.PI / 2;
+        lawn.rotation.z = hash2(lx + 7, lz + 1) * Math.PI;
+        lawn.scale.set(1, 0.7 + hash2(lx + 9, lz + 4) * 0.3, 1);
+        lawn.position.set(lx, 0.04, lz);
+        group.add(lawn);
+      }
+    }
+  }
+
+  // Palms — builder #9 rebuild, geometry redone by #16: NO flat fans.
+  // Each palm is a gently bowed trunk with a round three-tier crown of
+  // bent fronds (thin stems rising out-up, wide flat blades folding
+  // down), two greens, varied height (5.5–9) and lean, on both kerbs of
+  // the beachfront avenue and the east-west streets, so the chase camera
+  // always has palms at the frame's edges. Fronds, stems, trunks and
+  // coconuts are four instanced draws, so sixty palms cost no more than
+  // four meshes. A palm is only planted
   // where the finished buildings leave room (checked against the built
   // boxes), so no trunk ever grows through a tower, and never on a
   // crosswalk corner or in the on-foot fight's staging patch, so no trunk
@@ -1307,10 +1348,11 @@ export function buildCity(scene, theme, seed, textures) {
     if (hitsBuilding(buildings, px, pz, 2.6)) continue;
     spotPalm(px, pz, hash2(px, pz) > 0.5 ? 0.1 : -0.1, fs || 1);
   }
-  // One instanced draw for all trunks, one for all fronds, one for the
-  // coconut clusters. A frond is a long tapered cone whose base sits at
-  // the crown and whose tip droops 10–35° below horizontal, fanned around
-  // the trunk; the two greens alternate by position hash.
+  // One instanced draw for all trunks (two bowed segments each), one for
+  // the frond stems, one for the folding blades, one for the coconut
+  // clusters. A frond is a thin stem rising out-up with a wide flat blade
+  // that folds down from its tip, so the crown arches instead of
+  // stabbing straight out; the two greens alternate by position hash.
   // Builder #14c — REAL 3D CROWNS (fadli: "knp masih ada tempelan"): the
   // old frond was a 5-sided cone squashed flat (0.45), so each crown read
   // as one flat green fan. Fronds are now rounder (6 sides, 0.8 squash,
@@ -1320,63 +1362,138 @@ export function buildCity(scene, theme, seed, textures) {
   // the first pass fanned them near-horizontal (85°) and a kerb palm
   // beside the driving camera raked giant blades across a third of the
   // driving frame — drooping fronds stay beside their trunk instead.
-  const FRONDS_PER_PALM = 12;
+  // Builder #16 — ROUND, BENT, LAYERED CROWNS (fadli on #15: palem
+  // masih segitiga datar kayak tempelan kertas). The old crown was 12
+  // straight cones fanned in one flat ring — a regular star whose
+  // silhouette is a triangle from the street. Every frond is now TWO
+  // segments that BEND: a thin stem rising out-up, then a wide flat blade
+  // that folds down, so the frond arches like a real palm frond instead
+  // of stabbing straight out; and the crown has THREE tiers (10 long
+  // outer + 7 mid + 4 upright spears) with azimuth jitter, so no regular
+  // star forms and the silhouette is a full round pom-pom from any
+  // angle. Trunks bend too: two segments with a growing lean, a gentle
+  // curve instead of one straight pole. All palm POSITIONS are untouched
+  // (sightlines tuned in #14c/#15) — only the geometry changes.
+  // Per palm: 2 trunk segments, 21 stems (10 outer + 7 mid + 4 upright),
+  // 17 blades (10 outer + 7 mid), 3 coconuts.
   const palmCount = palmSpots.length;
   const trunkGeo = new THREE.CylinderGeometry(0.22, 0.34, 1, 7);
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 1 });
-  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, Math.max(1, palmCount));
-  const frondGeo = new THREE.ConeGeometry(0.55, 1, 6);
-  frondGeo.scale(1, 1, 0.8);
-  frondGeo.translate(0, 0.5, 0);
-  const frondMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
-  const fronds = new THREE.InstancedMesh(frondGeo, frondMat, Math.max(1, palmCount * FRONDS_PER_PALM));
+  const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, Math.max(1, palmCount * 2));
+  // A frond segment: a cone with its wide base at the joint and its tip
+  // pointing out. The stem is thin; the blade is wide and flattened, so
+  // it reads as a leaf, not a round spike.
+  const stemGeo = new THREE.ConeGeometry(0.26, 1, 6);
+  stemGeo.translate(0, 0.5, 0);
+  const stemMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+  const stems = new THREE.InstancedMesh(stemGeo, stemMat, Math.max(1, palmCount * 21));
+  const bladeGeo = new THREE.ConeGeometry(0.72, 1, 7);
+  bladeGeo.scale(1, 1, 0.42);
+  bladeGeo.translate(0, 0.5, 0);
+  const bladeMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+  const blades = new THREE.InstancedMesh(bladeGeo, bladeMat, Math.max(1, palmCount * 17));
   const nutGeo = new THREE.SphereGeometry(0.28, 8, 6);
   const nutMat = new THREE.MeshStandardMaterial({ color: 0x6a4a2a, roughness: 0.9 });
   const nuts = new THREE.InstancedMesh(nutGeo, nutMat, Math.max(1, palmCount * 3));
   const frondCols = (palette.frondColors || [0x2fae5a, 0x46c468]).map((c) => new THREE.Color(c));
   const frondQuat = new THREE.Quaternion();
   const frondEuler = new THREE.Euler(0, 0, 0, 'YXZ');
-  let frondIndex = 0;
+  // Unit direction of a segment tilted `tilt` from straight up, at
+  // azimuth `az`: local +Y after the YXZ Euler (tilt, az).
+  const segDir = (tilt, az) => [
+    Math.sin(tilt) * Math.sin(az),
+    Math.cos(tilt),
+    Math.sin(tilt) * Math.cos(az),
+  ];
+  const pickCol = (a, b) => frondCols[Math.floor(hash2(a, b) * frondCols.length) % frondCols.length];
+  let trunkIndex = 0;
+  let stemIndex = 0;
+  let bladeIndex = 0;
   let nutIndex = 0;
-  palmSpots.forEach(([px, pz, lean, trunkH, frondScale], pi) => {
-    dummy.position.set(px, trunkH / 2, pz);
+  palmSpots.forEach(([px, pz, lean, trunkH, frondScale]) => {
+    // Curved trunk: the lower segment leans `lean`, the upper segment
+    // leans 1.7x as far the same way, so the pole bows gently. The crown
+    // sits at the true top of the upper segment.
+    const h1 = trunkH * 0.62;
+    const h2 = trunkH * 0.48;
+    const lean2 = lean * 1.7;
+    const top1x = px + Math.sin(lean) * h1;
+    const top1y = Math.cos(lean) * h1;
+    const crownX = top1x + Math.sin(lean2) * h2;
+    const crownY = top1y + Math.cos(lean2) * h2 + 0.1;
+    dummy.position.set(px + Math.sin(lean) * (h1 / 2), top1y / 2, pz);
     dummy.rotation.set(0, 0, lean);
-    dummy.scale.set(1, trunkH, 1);
+    dummy.scale.set(1, h1, 1);
     dummy.updateMatrix();
-    trunks.setMatrixAt(pi, dummy.matrix);
-    const crownY = trunkH + 0.1;
+    trunks.setMatrixAt(trunkIndex, dummy.matrix);
+    trunkIndex += 1;
+    dummy.position.set(top1x + Math.sin(lean2) * (h2 / 2), top1y + Math.cos(lean2) * (h2 / 2), pz);
+    dummy.rotation.set(0, 0, lean2);
+    dummy.scale.set(1, h2, 1);
+    dummy.updateMatrix();
+    trunks.setMatrixAt(trunkIndex, dummy.matrix);
+    trunkIndex += 1;
     const phase = hash2(px, pz) * Math.PI * 2;
-    for (let f = 0; f < 9; f += 1) {
-      const az = phase + (f / 9) * Math.PI * 2;
-      const tilt = (100 + hash2(px + f * 3, pz + f) * 25) * (Math.PI / 180);
-      const len = (3.4 + hash2(px + f, pz + f * 5) * 1.8) * (frondScale || 1);
-      frondEuler.set(tilt, az, 0);
+    // One bent frond: stem out-up, blade folding down from the stem's tip.
+    const bentFrond = (f, tier, baseLen, t1lo, t1hi, t2lo, t2hi) => {
+      const az = phase + (f / tier) * Math.PI * 2 + (hash2(px + f * 17, pz + tier) - 0.5) * 0.5;
+      const len = baseLen * (frondScale || 1);
+      const t1 = (t1lo + hash2(px + f * 3, pz + f) * (t1hi - t1lo)) * (Math.PI / 180);
+      const t2 = (t2lo + hash2(px + f * 7, pz + f * 11) * (t2hi - t2lo)) * (Math.PI / 180);
+      const len1 = len * 0.5;
+      const len2 = len * 0.62;
+      const bx = crownX + Math.sin(az) * 0.3;
+      const bz = pz + Math.cos(az) * 0.3;
+      frondEuler.set(t1, az, 0);
       frondQuat.setFromEuler(frondEuler);
-      dummy.position.set(px + Math.sin(az) * 0.35, crownY, pz + Math.cos(az) * 0.35);
+      dummy.position.set(bx, crownY, bz);
       dummy.quaternion.copy(frondQuat);
-      dummy.scale.set(1, len, 1);
+      dummy.scale.set(1, len1, 1);
       dummy.updateMatrix();
-      fronds.setMatrixAt(frondIndex, dummy.matrix);
-      fronds.setColorAt(frondIndex, frondCols[Math.floor(hash2(px + f * 7, pz) * frondCols.length) % frondCols.length]);
-      frondIndex += 1;
+      stems.setMatrixAt(stemIndex, dummy.matrix);
+      stems.setColorAt(stemIndex, pickCol(px + f * 7, pz));
+      stemIndex += 1;
+      const d1 = segDir(t1, az);
+      const jx = bx + d1[0] * len1;
+      const jy = crownY + d1[1] * len1;
+      const jz = bz + d1[2] * len1;
+      const az2 = az + (hash2(px + f * 23, pz + f * 5) - 0.5) * 0.24;
+      frondEuler.set(t2, az2, 0);
+      frondQuat.setFromEuler(frondEuler);
+      dummy.position.set(jx, jy, jz);
+      dummy.quaternion.copy(frondQuat);
+      dummy.scale.set(1, len2, 1);
+      dummy.updateMatrix();
+      blades.setMatrixAt(bladeIndex, dummy.matrix);
+      blades.setColorAt(bladeIndex, pickCol(px + f * 13, pz + 5));
+      bladeIndex += 1;
+    };
+    // Outer tier: 10 long fronds, stems up-out, blades folding well down.
+    for (let f = 0; f < 10; f += 1) {
+      bentFrond(f, 10, 3.4 + hash2(px + f, pz + f * 5) * 1.8, 55, 80, 118, 145);
     }
-    for (let f = 0; f < 3; f += 1) {
-      const az = phase + f * 2.4 + 0.8;
-      const tilt = (30 + hash2(px + f * 11, pz + f * 3) * 25) * (Math.PI / 180);
+    // Mid tier: 7 shorter fronds, higher stems, blades folding to level.
+    for (let f = 0; f < 7; f += 1) {
+      bentFrond(f, 7, (3.4 + hash2(px + f * 3, pz + f * 7) * 1.8) * 0.72, 35, 55, 95, 120);
+    }
+    // Top tier: 4 upright spears, single thin segments, no blade.
+    for (let f = 0; f < 4; f += 1) {
+      const az = phase + f * 1.7 + 0.8;
+      const tilt = (12 + hash2(px + f * 11, pz + f * 3) * 20) * (Math.PI / 180);
       const len = (2.2 + hash2(px + f * 5, pz + f * 9) * 0.8) * (frondScale || 1);
       frondEuler.set(tilt, az, 0);
       frondQuat.setFromEuler(frondEuler);
-      dummy.position.set(px + Math.sin(az) * 0.2, crownY, pz + Math.cos(az) * 0.2);
+      dummy.position.set(crownX + Math.sin(az) * 0.2, crownY, pz + Math.cos(az) * 0.2);
       dummy.quaternion.copy(frondQuat);
-      dummy.scale.set(1, len, 1);
+      dummy.scale.set(1.8, len, 1.8);
       dummy.updateMatrix();
-      fronds.setMatrixAt(frondIndex, dummy.matrix);
-      fronds.setColorAt(frondIndex, frondCols[Math.floor(hash2(px + f * 13, pz + 5) * frondCols.length) % frondCols.length]);
-      frondIndex += 1;
+      stems.setMatrixAt(stemIndex, dummy.matrix);
+      stems.setColorAt(stemIndex, pickCol(px + f * 19, pz + 3));
+      stemIndex += 1;
     }
     for (let n = 0; n < 3; n += 1) {
       const na = phase + n * 2.1;
-      dummy.position.set(px + Math.sin(na) * 0.5, crownY - 0.35, pz + Math.cos(na) * 0.5);
+      dummy.position.set(crownX + Math.sin(na) * 0.5, crownY - 0.35, pz + Math.cos(na) * 0.5);
       dummy.quaternion.identity();
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
@@ -1384,12 +1501,15 @@ export function buildCity(scene, theme, seed, textures) {
       nutIndex += 1;
     }
   });
-  trunks.count = palmCount;
-  fronds.count = frondIndex;
+  trunks.count = trunkIndex;
+  stems.count = stemIndex;
+  blades.count = bladeIndex;
   nuts.count = nutIndex;
-  if (fronds.instanceColor) fronds.instanceColor.needsUpdate = true;
+  if (stems.instanceColor) stems.instanceColor.needsUpdate = true;
+  if (blades.instanceColor) blades.instanceColor.needsUpdate = true;
   group.add(trunks);
-  group.add(fronds);
+  group.add(stems);
+  group.add(blades);
   group.add(nuts);
 
   // Beach umbrellas: bright cones on poles, ringing the sand in two rows

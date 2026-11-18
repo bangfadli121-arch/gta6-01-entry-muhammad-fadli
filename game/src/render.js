@@ -144,22 +144,36 @@ export function createRenderer(canvas, theme, textures) {
       ? palette.sunDiscPositionTextured
       : palette.sunDiscPosition)
     : [palette.sunPosition[0] * 2.4, theme === 'sunset' ? 26 : 90, palette.sunPosition[2] * 2.4];
-  const sunGlow = new THREE.Mesh(
-    new THREE.CircleGeometry(theme === 'sunset' ? (hasPhotoSky ? 55 : 90) : 22, 28),
-    new THREE.MeshBasicMaterial({
-      color: theme === 'sunset' ? 0xff8a3d : 0x8a9ac8, fog: false,
-      transparent: true, opacity: theme === 'sunset' ? 0.55 : 0.2, toneMapped: false,
-    }),
-  );
-  sunGlow.position.set(sunDiscPos[0], sunDiscPos[1], sunDiscPos[2]);
-  sunGlow.lookAt(0, 10, 0);
-  scene.add(sunGlow);
-  const sunDisc = new THREE.Mesh(
-    new THREE.CircleGeometry(theme === 'sunset' ? (hasPhotoSky ? 22 : 34) : 12, 24),
-    new THREE.MeshBasicMaterial({ color: theme === 'sunset' ? (hasPhotoSky ? 0xffe9a0 : 0xfff8d0) : 0xdfe8ff, fog: false, toneMapped: false }),
-  );
+  // Builder #14 — A REAL GLOW, NOT A PLATE (fadli: "knp masih ada
+  // tempelan"): the old sun was two flat circles — a pale disc and a big
+  // orange halo disc — and both showed a hard circular rim against the
+  // sky, like a plate nailed up there. The sun is now a radial-gradient
+  // sprite: a bright core fading softly to transparent, no rim at all,
+  // over the halo and core glow sprites below (which were already soft).
+  const sunGlowCanvas = document.createElement('canvas');
+  sunGlowCanvas.width = 128;
+  sunGlowCanvas.height = 128;
+  const sunGlowCtx = sunGlowCanvas.getContext('2d');
+  const sunGlowGrad = sunGlowCtx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  sunGlowGrad.addColorStop(0, 'rgba(255,255,255,1)');
+  sunGlowGrad.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+  sunGlowGrad.addColorStop(0.6, 'rgba(255,255,255,0.16)');
+  sunGlowGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  sunGlowCtx.fillStyle = sunGlowGrad;
+  sunGlowCtx.fillRect(0, 0, 128, 128);
+  const sunGlowTex = new THREE.CanvasTexture(sunGlowCanvas);
+  const sunDisc = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: sunGlowTex,
+    color: theme === 'sunset' ? 0xffe9a0 : 0xdfe8ff,
+    transparent: true, opacity: 0.95, fog: false, toneMapped: false, depthWrite: false,
+  }));
   sunDisc.position.set(sunDiscPos[0], sunDiscPos[1], sunDiscPos[2]);
-  sunDisc.lookAt(0, 10, 0);
+  sunDisc.scale.set(
+    theme === 'sunset' ? (hasPhotoSky ? 64 : 110) : 40,
+    theme === 'sunset' ? (hasPhotoSky ? 64 : 110) : 40,
+    1,
+  );
+  sunDisc.renderOrder = 10;
   scene.add(sunDisc);
 
   // --- The sun's bloom: two additive radial-gradient sprites over the disc,

@@ -1,0 +1,7 @@
+# Vice Shores build outputs and local clutter — never committed.
+out/
+out2/
+node_modules/
+*.log
+.DS_Store
+*.tmp

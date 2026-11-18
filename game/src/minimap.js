@@ -1,22 +1,23 @@
 // The minimap: a 2D canvas that draws the city from above — roads, the beach,
 // the player as an arrow, police as flashing dots, traffic as specks and the
 // mission marker as a pulsing diamond. One clear job, no three.js in here.
-// Beach-city colours, matching the 3D look: dark asphalt roads (the beach
-// boulevard and the two east-west arterials wider, with a yellow centre
-// line), saturated pastel blocks, bright sand and a vivid blue ocean, so
-// every part of the map reads at a glance instead of washing into one warm
-// blur. The player arrow is big with a dark halo; north gets a dark pill.
+//
+// Builder #9 redraw (the change fadli asked for by name): the map is LINES
+// on sand and sea, never filled blocks. The land is pale sand, the streets
+// are thin dark lines with a yellow dash down the main roads, the blocks
+// are only faint pale outlines, and the coast is a gentle curve with a surf
+// line — the way the winning entries draw it. The player arrow is big with
+// a dark halo; north gets a dark pill.
 import { CITY } from './config.js';
 
 const WORLD = 440;
 
-/** A stable 0..1 hash of two coordinates, for block colours that never move. */
+/** A stable 0..1 hash of two coordinates, for colours that never move. */
 function hash2(x, z) {
   const s = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
   return s - Math.floor(s);
 }
 
-const BLOCK_COLORS = ['#ff9e7d', '#7fc8bc', '#f7d774', '#e78fb3', '#a8d8ea', '#ffb347', '#c9a0dc'];
 // The main roads: the beachfront boulevard and the two east-west arterials
 // that run to the beach. Everything else is a minor street.
 const MAIN_X = [145];
@@ -35,30 +36,33 @@ export function drawMinimap(canvas, view) {
   ctx.beginPath();
   ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
   ctx.clip();
-  ctx.fillStyle = '#e6d3ac';
+  // Land: pale sand everywhere, so the map reads as a beach city at a glance.
+  ctx.fillStyle = '#f2d491';
   ctx.fillRect(0, 0, size, size);
-  // Blocks: saturated pastels, one colour per block, keyed off its position.
+  // Blocks: faint pale outlines only — no filled colour, no squares. A
+  // whisper of a street grid, not a checkerboard.
   const half = CITY.blockSize / 2;
+  ctx.strokeStyle = 'rgba(217,185,138,0.55)';
+  ctx.lineWidth = 1;
   for (let ix = 0; ix < 7; ix += 1) {
     for (let iz = 0; iz < 7; iz += 1) {
       const cx = -CITY.pitch * 3 + ix * CITY.pitch;
       const cz = -CITY.pitch * 3 + iz * CITY.pitch;
       if (cx > 150) continue;
-      ctx.fillStyle = BLOCK_COLORS[Math.floor(hash2(cx, cz) * BLOCK_COLORS.length) % BLOCK_COLORS.length];
-      ctx.fillRect(toX(cx - half), toY(cz - half), CITY.blockSize * scale, CITY.blockSize * scale);
+      ctx.strokeRect(toX(cx - half), toY(cz - half), CITY.blockSize * scale, CITY.blockSize * scale);
     }
   }
-  // Roads: dark asphalt, so the street grid cuts through the pastel blocks.
-  // Minor streets first, then the main roads wider on top, with a yellow
-  // centre line down each main road like the 3D streets carry.
-  ctx.strokeStyle = '#2e2a33';
+  // Roads: thin dark lines, so the street grid reads as lines on sand.
+  // Minor streets first, then the main roads a touch wider on top, with a
+  // yellow dashed centre line down each main road like the 3D streets carry.
+  ctx.strokeStyle = '#3a3340';
   ctx.lineCap = 'round';
-  ctx.lineWidth = CITY.roadWidth * scale;
+  ctx.lineWidth = 2;
   for (const s of CITY.streets) {
     ctx.beginPath(); ctx.moveTo(toX(s), 0); ctx.lineTo(toX(s), size); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, toY(s)); ctx.lineTo(size, toY(s)); ctx.stroke();
   }
-  ctx.lineWidth = CITY.roadWidth * scale + 2;
+  ctx.lineWidth = 3.5;
   for (const s of MAIN_X) {
     ctx.beginPath(); ctx.moveTo(toX(s), 0); ctx.lineTo(toX(s), size); ctx.stroke();
   }
@@ -67,33 +71,81 @@ export function drawMinimap(canvas, view) {
   }
   ctx.strokeStyle = '#ffd23d';
   ctx.lineWidth = 1.2;
+  ctx.setLineDash([4, 3]);
   for (const s of MAIN_X) {
     ctx.beginPath(); ctx.moveTo(toX(s), 0); ctx.lineTo(toX(s), size); ctx.stroke();
   }
   for (const s of MAIN_Z) {
     ctx.beginPath(); ctx.moveTo(0, toY(s)); ctx.lineTo(size, toY(s)); ctx.stroke();
   }
-  // Beach and ocean: bright sand, then a vivid blue sea with a pale surf
-  // line where the waves break. The beach covers the roads' east ends, so
-  // no street runs into the water.
-  ctx.fillStyle = '#f2d491';
-  ctx.fillRect(toX(CITY.beachX), 0, size - toX(CITY.beachX), size);
-  ctx.fillStyle = '#1a8fc8';
-  ctx.fillRect(toX(CITY.waterX), 0, size - toX(CITY.waterX), size);
-  ctx.fillStyle = 'rgba(216,240,255,0.85)';
-  ctx.fillRect(toX(CITY.waterX) - 1, 0, 2, size);
+  ctx.setLineDash([]);
+  // Beach and ocean: bright sand, then a vivid blue sea, the coast drawn
+  // as a gentle curve (bulging east mid-map) with a pale surf line — the
+  // shoreline reads as a curve, not a ruler edge. The beach covers the
+  // roads' east ends, so no street runs into the water.
+  ctx.fillStyle = '#f7e3ac';
+  ctx.beginPath();
+  ctx.moveTo(toX(CITY.beachX), 0);
+  ctx.bezierCurveTo(
+    toX(CITY.beachX) + 10, size * 0.33,
+    toX(CITY.beachX) - 4, size * 0.66,
+    toX(CITY.beachX), size,
+  );
+  ctx.lineTo(size, size);
+  ctx.lineTo(size, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#22b4e6';
+  ctx.beginPath();
+  ctx.moveTo(toX(CITY.waterX), 0);
+  ctx.bezierCurveTo(
+    toX(CITY.waterX) + 10, size * 0.33,
+    toX(CITY.waterX) - 4, size * 0.66,
+    toX(CITY.waterX), size,
+  );
+  ctx.lineTo(size, size);
+  ctx.lineTo(size, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(234,247,255,0.9)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(toX(CITY.waterX), 0);
+  ctx.bezierCurveTo(
+    toX(CITY.waterX) + 10, size * 0.33,
+    toX(CITY.waterX) - 4, size * 0.66,
+    toX(CITY.waterX), size,
+  );
+  ctx.stroke();
+  // Palm dots along the beach arc, so the sand reads as a palm-lined shore.
+  ctx.fillStyle = '#2fae5a';
+  for (let i = 0; i < 9; i += 1) {
+    const pz = -160 + i * 40;
+    const px = CITY.beachX + 8 + Math.sin(pz * 0.03) * 6;
+    ctx.beginPath();
+    ctx.arc(toX(px), toY(pz), 2.2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // The ferris wheel: a small gold ring on the sand, the map's landmark.
+  ctx.strokeStyle = '#e8a93a';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(toX(186), toY(-95), 4.5, 0, Math.PI * 2);
+  ctx.stroke();
   // Traffic specks.
   ctx.fillStyle = 'rgba(26,16,48,0.85)';
   for (const car of view.trafficCars) {
     ctx.fillRect(toX(car.x) - 1.75, toY(car.z) - 1.75, 3.5, 3.5);
   }
-  // The Hideout: a green square, home base on the map.
+  // The Hideout: a green dot, home base on the map.
   if (view.hideout) {
     ctx.fillStyle = '#2aff66';
-    ctx.fillRect(toX(view.hideout.x) - 3, toY(view.hideout.z) - 3, 6, 6);
+    ctx.beginPath();
+    ctx.arc(toX(view.hideout.x), toY(view.hideout.z), 3.5, 0, Math.PI * 2);
+    ctx.fill();
     ctx.strokeStyle = '#062';
     ctx.lineWidth = 1;
-    ctx.strokeRect(toX(view.hideout.x) - 3, toY(view.hideout.z) - 3, 6, 6);
+    ctx.stroke();
   }
   // Mission marker: a pulsing yellow diamond.
   if (view.marker) {

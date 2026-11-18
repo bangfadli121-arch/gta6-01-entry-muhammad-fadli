@@ -12,14 +12,17 @@
 // with the sun low over the ocean at the end of the east streets, a glare
 // sprite over the sun disc, dark wet-looking asphalt with a yellow centre
 // line and a sun streak, saturated towers with warm lit windows on all four
-// faces, glowing street lamps, palms lining the beachfront avenue and the
-// east streets, a bright sand beach with colourful umbrellas and towels, a
-// big neon billboard that glows pink and spills light, and a ferris wheel
-// on the sand, saturated car paint, crosswalks and kerb-parked cars on busy
-// streets, and a denser HUD — a VSPD response list, a mission-giver dialog
-// bar with a drawn portrait, a radio bar, weapon slots, a stage bar, a
-// day/clock line and a district name — all drawn from state the game already
-// owns, so nothing about play itself changed. The glow is faked with
+// faces, glowing street lamps, drooping palm fronds lining the beachfront
+// avenue and the east streets, a bright sand beach with colourful umbrellas
+// and towels, a curved shoreline with a sine foam line, a low colourful
+// shop row along the beachfront instead of flat towers, a big neon billboard
+// that glows pink and spills light, and a ferris wheel on the sand,
+// saturated car paint, crosswalks and kerb-parked cars on busy streets, and
+// a denser HUD — a VSPD response list, a mission-giver dialog bar with a
+// drawn portrait, a radio bar, weapon slots, a stage bar, a day/clock line
+// and a district name, rounded colourful panels and a round speedometer
+// dial — all drawn from state the game already owns, so nothing about play
+// itself changed. The glow is faked with
 // additive sprites and one billboard point light, not a post-processing
 // pass, so the frame stays fast and deterministic.
 //
@@ -39,13 +42,16 @@ const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 // must carry, so a stray edit that drops the beach-city look fails here
 // instead of handing in a regressed entry. Each entry is a literal the
 // config file must contain (a sun disc over the ocean, dark asphalt, bright
-// sand and ocean, most windows lit).
+// sand and ocean, most windows lit, drooping palm fronds in two greens and
+// the low beachfront shop row).
 const COASTAL_THEME = [
   ['sun disc over the ocean', 'sunDiscPosition: [480, 26, 10]'],
   ['dark asphalt', "roadTint: '#2e2a33'"],
   ['bright sand', 'sandTint: 0xf2d491'],
-  ['bright ocean', 'oceanTint: 0x1a8fc8'],
+  ['bright ocean', 'oceanTint: 0x22b4e6'],
   ['most windows lit', 'windowLit: 0.58'],
+  ['drooping palm fronds', 'frondColors: [0x2fae5a, 0x46c468, 0x279a4e]'],
+  ['beachfront shop row', "shopTints: ['#ff8a5c', '#37c8e8', '#ffd94a', '#ff5a8a', '#7dd8a0']"],
 ];
 const configText = readFileSync(join(here, 'game', 'src', 'config.js'), 'utf8');
 for (const [label, needle] of COASTAL_THEME) {

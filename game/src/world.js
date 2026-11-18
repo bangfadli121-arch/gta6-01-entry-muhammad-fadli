@@ -27,13 +27,13 @@ import { createCombat } from './combat.js';
 
 const SPAWN = { x: 29, z: -141.6, heading: 0 };
 
-export function createGame(canvas, theme, seed) {
-  const renderer = createRenderer(canvas, theme);
+export function createGame(canvas, theme, seed, textures) {
+  const renderer = createRenderer(canvas, theme, textures);
   const scene = renderer.scene;
   const hud = createHud(document);
   const particles = createParticles(scene);
   const audio = createAudio();
-  const city = buildCity(scene, theme, seed);
+  const city = buildCity(scene, theme, seed, textures);
   const traffic = createTraffic(scene, seed, city.buildings);
   const police = createPolice(scene, seed);
   const missions = createMissions(scene, seed);

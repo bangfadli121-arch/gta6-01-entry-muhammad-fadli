@@ -57,6 +57,35 @@ function wheelMesh() {
   return wheel;
 }
 
+/** One shared radial-gradient texture for the police light-bar glows. */
+let lightGlowTexture = null;
+function makeLightGlowTexture() {
+  if (lightGlowTexture) return lightGlowTexture;
+  const c = document.createElement('canvas');
+  c.width = 64;
+  c.height = 64;
+  const ctx = c.getContext('2d');
+  const grad = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.3, 'rgba(255,255,255,0.5)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 64);
+  lightGlowTexture = new THREE.CanvasTexture(c);
+  return lightGlowTexture;
+}
+
+/** An additive glow sprite in `color`, parked at (x, y, z) on the car. */
+function makeLightGlow(color, x, y, z) {
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: makeLightGlowTexture(), color, transparent: true, opacity: 0.08,
+    blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+  }));
+  sprite.position.set(x, y, z);
+  sprite.scale.set(3.4, 3.4, 1);
+  return sprite;
+}
+
 /**
  * Build a car's mesh. `kind` picks the proportions, `color` the paint.
  * Returns { group, wheels, brakeMat, headMat, barRed, barBlue, kind }.
@@ -65,7 +94,7 @@ function wheelMesh() {
 export function createCarMesh(kind, color) {
   const size = KIND_SIZE[kind] || KIND_SIZE.sedan;
   const group = new THREE.Group();
-  const paint = kind === 'police' ? 0x1a1a22 : color;
+  const paint = kind === 'police' ? 0xf0f0f0 : color;
   const body = box(size.length, size.height, size.width, paint);
   body.position.y = 0.55;
   group.add(body);
@@ -109,6 +138,8 @@ export function createCarMesh(kind, color) {
   // A taxi sign, a truck bed, or a police light bar on the roof.
   let barRed = null;
   let barBlue = null;
+  let glowRed = null;
+  let glowBlue = null;
   if (kind === 'taxi') {
     const sign = box(0.7, 0.18, 0.5, 0xffd94a, 0xffd94a, 0.7);
     sign.position.set(0, 0.55 + size.height / 2 + size.cabin + 0.08, 0);
@@ -121,16 +152,31 @@ export function createCarMesh(kind, color) {
     const barBase = box(0.9, 0.12, 0.5, 0x111116);
     barBase.position.set(0, 0.55 + size.height / 2 + size.cabin + 0.05, 0);
     group.add(barBase);
-    barRed = box(0.36, 0.16, 0.4, 0x881111, 0xff2020, 1.6);
+    // Builder #13 — a BIGGER bar (0.44 wide, was 0.36): from twenty units
+    // the old bar was a couple of pixels and the chase read as plain
+    // black cars. Each half also carries an additive glow sprite, so the
+    // flashing bar throws light you can see at chase distance, in play
+    // and in the cover frame.
+    barRed = box(0.44, 0.2, 0.4, 0x881111, 0xff2020, 1.6);
     barRed.position.set(0, 0.55 + size.height / 2 + size.cabin + 0.14, -0.22);
     group.add(barRed);
-    barBlue = box(0.36, 0.16, 0.4, 0x111188, 0x2040ff, 1.6);
+    barBlue = box(0.44, 0.2, 0.4, 0x111188, 0x2040ff, 1.6);
     barBlue.position.set(0, 0.55 + size.height / 2 + size.cabin + 0.14, 0.22);
     group.add(barBlue);
-    // White doors: a thin bright stripe down each side.
-    const stripe = box(size.length * 0.9, 0.22, size.width + 0.02, 0xe8e8e8);
+    const barY = 0.55 + size.height / 2 + size.cabin + 0.3;
+    glowRed = makeLightGlow(0xff2020, 0, barY + 0.15, -0.22);
+    glowBlue = makeLightGlow(0x2040ff, 0, barY + 0.15, 0.22);
+    group.add(glowRed);
+    group.add(glowBlue);
+    // Black doors and a black hood on the white body: the two-tone
+    // black-and-white that reads as a police car at chase distance,
+    // instead of a black slab lost against dark asphalt.
+    const stripe = box(size.length * 0.9, 0.3, size.width + 0.02, 0x1a1a22);
     stripe.position.y = 0.55;
     group.add(stripe);
+    const hood = box(1.1, 0.06, size.width * 0.8, 0x1a1a22);
+    hood.position.set(size.length / 2 - 0.5, 0.55 + size.height / 2 + 0.02, 0);
+    group.add(hood);
   }
 
   // Headlights (warm white, emissive) and tail lights (red, emissive).
@@ -164,7 +210,7 @@ export function createCarMesh(kind, color) {
     wheels.push(wheel);
   }
 
-  return { group, wheels, brakeMat, headMat, barRed, barBlue, kind };
+  return { group, wheels, brakeMat, headMat, barRed, barBlue, glowRed, glowBlue, kind };
 }
 
 /**
@@ -194,6 +240,13 @@ export function syncCarMesh(mesh, car, dt) {
     const on = (car.flash || 0) > 0.5;
     mesh.barRed.material.emissiveIntensity = on ? 3.2 : 0.25;
     mesh.barBlue.material.emissiveIntensity = on ? 0.25 : 3.2;
+  }
+  // Builder #13: the glow sprites alternate with the bar — the lit side
+  // throws a red or blue halo, the dark side nearly vanishes.
+  if (mesh.glowRed && mesh.glowBlue) {
+    const on = (car.flash || 0) > 0.5;
+    mesh.glowRed.material.opacity = on ? 0.95 : 0.06;
+    mesh.glowBlue.material.opacity = on ? 0.06 : 0.95;
   }
 }
 

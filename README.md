@@ -26,11 +26,12 @@ pink-orange sky, a low sun, pastel towers, palms and a ferris wheel on the sand.
 - **Combat** — fists (F), a pistol with a tracer and muzzle flash (click, R
   to reload), guards who chase and swing; cash pickups on the sidewalks.
 - **HUD and minimap** — cash, health, ammo, speed, wanted stars, mission
-  objective with a stage bar, a message feed, and a round minimap with the
-  player, police, traffic and the mission marker — plus a VSPD response list
+  objective with a stage bar, a message feed, and a round minimap drawn as
+  thin street lines on sand and sea (no filled blocks) with the player,
+  police, traffic and the mission marker — plus a VSPD response list
   (unit, distance, status), a mission-giver dialog bar with a drawn portrait,
-  a radio bar, weapon slots, a day/clock line and the district name under the
-  minimap.
+  a radio bar, weapon slots, a day/clock line, the district name under the
+  minimap, rounded colourful panels and a round speedometer dial.
 - **Start screen and save** — title screen over a living city, pause (P),
   busted/wasted flow, progress auto-saves to localStorage (C continues).
 - **Sound** — everything synthesized with WebAudio: engine hum, siren, shots,
@@ -58,10 +59,12 @@ kerbs, sun over the ocean), 3-onfoot (the courier fight, facing the sunset),
 Golden hour over a beach city: a four-band violet-pink-orange-gold sky with
 the sun low over the ocean at the end of the east streets, glaring through
 an additive halo, and long pink streak clouds, saturated towers with warm
-lit windows on all four faces, glowing street lamps, dark wet-looking
-asphalt with a yellow centre line and a sun streak, palms lining the
-beachfront avenue and the east streets, a bright sand beach with colourful
-umbrellas and towels, a big neon billboard that glows pink and spills light
+lit windows on all four faces, stepped crowns, balconies and neon strips,
+glowing street lamps, dark wet-looking asphalt with a yellow centre line, white
+edge lines and a sun streak, drooping palm fronds lining the beachfront
+avenue and the east streets, a bright sand beach with colourful umbrellas and
+towels, a curved shoreline with a sine foam line, a low colourful shop row
+along the beachfront, a big neon billboard that glows pink and spills light
 onto the promenade, and a ferris wheel, saturated car paint, crosswalks and
 kerb-parked cars. The glow is faked with additive sprites and one billboard
 point light, not a post-processing pass, so the frame stays fast. An earlier

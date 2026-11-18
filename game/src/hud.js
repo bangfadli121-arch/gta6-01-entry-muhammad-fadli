@@ -25,6 +25,7 @@ export function createHud(document) {
   const stageText = el('stageText');
   const speedNum = el('speedNum');
   const speedUnit = el('speedUnit');
+  const speedRing = el('speedRing');
   const vehicleLine = el('vehicleLine');
   const ammoNum = el('ammoNum');
   const slotAmmo = el('slotAmmo');
@@ -106,6 +107,12 @@ export function createHud(document) {
     lastSpeed = value;
     speedNum.textContent = String(value);
     speedUnit.textContent = inCar ? 'KM/H · DRIVING' : 'KM/H · ON FOOT';
+    // The round speedometer ring: a full circle is 160 km/h, so the arc
+    // grows with speed like the winners' round dials.
+    if (speedRing) {
+      const frac = Math.max(0, Math.min(1, value / 160));
+      speedRing.style.strokeDashoffset = String(364 * (1 - frac));
+    }
   }
 
   function setAmmo(ammo) {
@@ -139,7 +146,7 @@ export function createHud(document) {
    * small original flat-vector faces drawn inline — a grey-hat detective
    * for Orlo, a dark-bob profile for Mara — never a photo or a copy. */
   const PORTRAITS = {
-    'DETECTIVE ORLO': '<svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true">'
+    'DETECTIVE ORLO': '<svg viewBox="0 0 44 44" width="56" height="56" aria-hidden="true">'
       + '<rect width="44" height="44" fill="#274b63"/>'
       + '<path d="M4 44 Q22 30 40 44 Z" fill="#1d2f45"/>'
       + '<ellipse cx="22" cy="25" rx="9" ry="11" fill="#e8b88a"/>'
@@ -149,7 +156,7 @@ export function createHud(document) {
       + '<rect x="23" y="23" width="7" height="4" rx="1" fill="#14141a"/>'
       + '<rect x="21" y="24" width="2" height="2" fill="#14141a"/>'
       + '<rect x="18" y="32" width="8" height="3" rx="1" fill="#c8c8c8"/></svg>',
-    'MARA KADE': '<svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true">'
+    'MARA KADE': '<svg viewBox="0 0 44 44" width="56" height="56" aria-hidden="true">'
       + '<rect width="44" height="44" fill="#5a2a4a"/>'
       + '<path d="M8 44 V20 Q8 6 22 6 Q36 6 36 20 V44 Z" fill="#241a20"/>'
       + '<ellipse cx="22" cy="25" rx="9" ry="11" fill="#f0c8a0"/>'

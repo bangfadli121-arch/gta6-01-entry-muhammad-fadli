@@ -134,8 +134,29 @@ export function createHud(document) {
     policeRows.innerHTML = html;
   }
 
-  /** The dialog bar: the mission giver's portrait initials, name and the
-   * live objective line. Hidden when no mission is running. */
+  /** The dialog bar: the mission giver's portrait, name and the live
+   * objective line. Hidden when no mission is running. The portraits are
+   * small original flat-vector faces drawn inline — a grey-hat detective
+   * for Orlo, a dark-bob profile for Mara — never a photo or a copy. */
+  const PORTRAITS = {
+    'DETECTIVE ORLO': '<svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true">'
+      + '<rect width="44" height="44" fill="#274b63"/>'
+      + '<path d="M4 44 Q22 30 40 44 Z" fill="#1d2f45"/>'
+      + '<ellipse cx="22" cy="25" rx="9" ry="11" fill="#e8b88a"/>'
+      + '<path d="M13 13 h18 l-2 -7 h-14 z" fill="#22303e"/>'
+      + '<rect x="8" y="12" width="28" height="4" rx="2" fill="#22303e"/>'
+      + '<rect x="14" y="23" width="7" height="4" rx="1" fill="#14141a"/>'
+      + '<rect x="23" y="23" width="7" height="4" rx="1" fill="#14141a"/>'
+      + '<rect x="21" y="24" width="2" height="2" fill="#14141a"/>'
+      + '<rect x="18" y="32" width="8" height="3" rx="1" fill="#c8c8c8"/></svg>',
+    'MARA KADE': '<svg viewBox="0 0 44 44" width="44" height="44" aria-hidden="true">'
+      + '<rect width="44" height="44" fill="#5a2a4a"/>'
+      + '<path d="M8 44 V20 Q8 6 22 6 Q36 6 36 20 V44 Z" fill="#241a20"/>'
+      + '<ellipse cx="22" cy="25" rx="9" ry="11" fill="#f0c8a0"/>'
+      + '<path d="M13 22 Q13 11 22 11 Q31 11 31 22 Q27 15 22 15 Q17 15 13 22 Z" fill="#241a20"/>'
+      + '<circle cx="13" cy="31" r="1.4" fill="#ffd94a"/>'
+      + '<ellipse cx="22" cy="33" rx="3.5" ry="1.6" fill="#d83a5a"/></svg>',
+  };
   function setDialog(name, initials, text) {
     const key = `${name}|${initials}|${text}`;
     if (key === lastDialog) return;
@@ -145,7 +166,8 @@ export function createHud(document) {
       return;
     }
     dialogBar.classList.remove('hidden');
-    dialogFace.textContent = initials;
+    dialogFace.innerHTML = PORTRAITS[name] ?? '';
+    if (!PORTRAITS[name]) dialogFace.textContent = initials;
     dialogName.textContent = name;
     dialogText.textContent = text;
   }

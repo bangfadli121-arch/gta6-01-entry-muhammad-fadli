@@ -103,10 +103,24 @@ export function stageShot(name, game) {
     // sprite is shrunk so it no longer washes the wheel out, and the
     // FLAMINGO board at z=40 still holds whole on the frame's right side
     // at seven seconds (its far edge stays inside the frame).
-    placeInOwnCar(game, -30, -29, 0);
+    placeInOwnCar(game, -70, -24, 0);
+    // Clear the chase route: a crossing car that stops for the player
+    // (traffic brakes when the player is ahead of it) wedges the chase
+    // to a dead stop in the intersection — that is what pinned the
+    // speedo at 0. Every traffic car starts the drive at the far end
+    // behind its direction of travel, so none of them reaches the
+    // chase's route in eight seconds.
+    for (const c of game.traffic.cars) {
+      c.along = c.direction > 0 ? -175 : 175;
+    }
     // Drive clean first: the heat only lands once the chase frame is staged,
     // so the police have no time to ram Rico to pieces before the photo.
-    step(game, 7, () => lanePilot(game, -25.6, 'x')); // The right-hand lane.
+    // Builder #11: eight seconds from further west — the chase must still
+    // be moving when the photo is taken (speedo up, not 0), and the
+    // camera must be east of the mid-city towers so the low sun reads
+    // down the street. The pilot brakes for the car ahead; the street
+    // ahead is cleared above, so it never has to.
+    step(game, 8, () => lanePilot(game, -20.6, 'x')); // The right-hand lane.
     game.startMission(2); // Three stars: the VSPD is on Rico.
     // One step so the three units actually spawn (they only appear inside
     // police.update), then park them ahead of the player for the chase frame.
@@ -121,6 +135,9 @@ export function stageShot(name, game) {
     // The staged frame is a chase, not a wreck: full health for the photo.
     game.player.health = 100;
     game.hud.setHealth(100);
+    // The chase frame carries the feedback text the winners show: a drift
+    // count and a near miss, pinned for the photo.
+    game.hud.showFeedback('DRIFT x3', 'NEAR MISS +$250', true);
     return { screen: 'play' };
   }
   if (name === 'driving') {
@@ -131,8 +148,8 @@ export function stageShot(name, game) {
     // umbrellas and surf are in the frame, not just the street. Take 2:
     // six seconds instead of nine, so the car still ends on the street
     // with the coast at its end instead of running out onto the sand.
-    placeInOwnCar(game, 20, 29, 0);
-    step(game, 6, () => lanePilot(game, 32.4, 'x')); // The right-hand lane.
+    placeInOwnCar(game, 20, 24, 0);
+    step(game, 6, () => lanePilot(game, 27.4, 'x')); // The right-hand lane.
     // A sideswipe or a police ram on the way in is real play, not the photo:
     // the driving frame shows the city and the traffic, not a dented Rico.
     game.player.health = 100;
@@ -146,13 +163,13 @@ export function stageShot(name, game) {
     // Stop the courier right in front of Rico and bring his guards out.
     // The fight faces east, into the low sun and the palms of the street.
     courier.car.along = 40;
-    courier.car.street = 29;
+    courier.car.street = 24;
     courier.car.axis = 'x';
     courier.car.cruise = 0;
     courier.stopped = true;
     courier.runTimer = 99;
     const cx = 40;
-    const cz = 32;
+    const cz = 27;
     courier.car.x = cx;
     courier.car.z = cz;
     syncCarMesh(courier.mesh, courier.car, 0);
@@ -164,8 +181,8 @@ export function stageShot(name, game) {
     game.briefcase.mesh.visible = true;
     const p = game.player;
     p.x = cx - 10;
-    p.z = cz + 6;
-    p.heading = Math.atan2(cz - p.z, cx - p.x);
+    p.z = cz;
+    p.heading = 0;
     p.mesh.position.set(p.x, 0, p.z);
     step(game, 1.0, () => ({ throttle: 1, steer: 0, brake: 0, handbrake: 0, run: 0 }));
     game.update(STEP, ZERO_AXES, ACTION_PUNCH, false);

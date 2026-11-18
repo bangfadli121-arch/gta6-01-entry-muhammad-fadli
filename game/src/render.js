@@ -80,7 +80,10 @@ export function createRenderer(canvas, theme) {
 
   // --- The sky: a gradient dome in four bands — violet dusk at the top,
   // pink, then orange, then a pale-gold horizon — so the sky reads as
-  // layered sunset bands instead of one flat orange wash. It sits behind
+  // layered sunset bands instead of one flat orange wash. A warm glow
+  // gathers around the sun's own direction (brightest low over the ocean),
+  // so the sky is brightest where the sun sits and the top of the frame
+  // stays light violet-pink, never a flat red slab. It sits behind
   // everything (BackSide, depthWrite off, fog off) and never moves with
   // the camera's chase.
   const skyDome = new THREE.Mesh(
@@ -94,13 +97,16 @@ export function createRenderer(canvas, theme) {
         upper: { value: new THREE.Color(palette.skyUpper ?? palette.skyMid ?? palette.sky) },
         mid: { value: new THREE.Color(palette.skyMid ?? palette.sky) },
         bot: { value: new THREE.Color(palette.horizon ?? palette.sky) },
+        sunDir: { value: new THREE.Vector3(480, 26, 10).normalize() },
       },
       vertexShader: 'varying vec3 vP; void main() { vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'varying vec3 vP; uniform vec3 top; uniform vec3 upper; uniform vec3 mid; uniform vec3 bot;'
+      fragmentShader: 'varying vec3 vP; uniform vec3 top; uniform vec3 upper; uniform vec3 mid; uniform vec3 bot; uniform vec3 sunDir;'
         + 'void main() { float h = normalize(vP).y;'
         + ' vec3 c = h > 0.42 ? mix(upper, top, smoothstep(0.42, 0.85, h))'
         + ' : h > 0.10 ? mix(mid, upper, smoothstep(0.10, 0.30, h))'
         + ' : mix(bot, mid, smoothstep(-0.06, 0.10, h));'
+        + ' float g = pow(max(dot(normalize(vP), sunDir), 0.0), 6.0);'
+        + ' c = mix(c, vec3(1.0, 0.85, 0.6), g * 0.55);'
         + ' gl_FragColor = vec4(c, 1.0); }',
     }),
   );
@@ -243,8 +249,8 @@ export function createRenderer(canvas, theme) {
    * field of view widens a little with speed, so fast driving feels fast.
    */
   function updateCamera(player, dt) {
-    const dist = player.inCar ? 13.5 : 8.5;
-    const height = player.inCar ? 5.2 : 3.6;
+    const dist = player.inCar ? 12.5 : 8.5;
+    const height = player.inCar ? 4.7 : 3.6;
     const wantFov = 62 + Math.min(8, Math.abs(player.speed) * 0.14);
     if (Math.abs(camera.fov - wantFov) > 0.1) {
       camera.fov = wantFov;
@@ -266,20 +272,34 @@ export function createRenderer(canvas, theme) {
   }
 
   /** Place the camera for a wide establishing view of the city (title screen):
-   * low in the south-west, looking north-east across the city toward the
-   * beach, the ferris wheel and the low sun over the ocean, so the title
-   * sits over a sunset skyline instead of a dark backdrop. */
+   * low in the south-west, looking east-south-east along the coast toward
+   * the beach, the ferris wheel and the billboard, so the title sits over
+   * a sunset shoreline — sand, surf, palms and shopfronts in the lower
+   * frame, bright sky above — instead of a dark backdrop or a grid of
+   * rooftops. The camera sits low enough that the beachfront shop row
+   * and the palms lead the eye to the wheel and the sun. Take 2 retune:
+   * pulled further south and lower, looking further east, so the wheel,
+   * the billboard and the sun are all inside the frame above the card.
+   * Take 3 retune: that lookAt sat dead on the wheel, so the card hid
+   * both landmarks — now the view swings further east, which pushes the
+   * wheel and the billboard into the clear strip left of the card while
+   * the ocean and bright sky fill the rest of the frame. Take 3 second
+   * pass: the first swing (lookAt 245,8,70) still left both landmarks
+   * inside the card — the camera's aspect is 1280/480, so the card
+   * covers ~38 degrees either side of centre — so the view swings to
+   * nearly due east (lookAt 258,8,134), putting the wheel and billboard
+   * ~43 degrees off-axis, in the clear strip left of the card. */
   function setEstablishing() {
-    camera.position.set(-110, 44, 125);
-    camera.lookAt(90, 8, -70);
+    camera.position.set(-40, 24, 165);
+    camera.lookAt(258, 8, 134);
     // Reset the chase state to match, so the first play frame does not swoop
     // the camera all the way from the title view to behind the player.
-    camState.x = -110;
-    camState.y = 44;
-    camState.z = 125;
-    camState.lookX = 90;
+    camState.x = -40;
+    camState.y = 24;
+    camState.z = 165;
+    camState.lookX = 258;
     camState.lookY = 8;
-    camState.lookZ = -70;
+    camState.lookZ = 134;
   }
 
   function render() {

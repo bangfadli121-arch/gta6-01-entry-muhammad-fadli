@@ -168,6 +168,29 @@ export function drawMinimap(canvas, view) {
     ctx.beginPath(); ctx.moveTo(toX(-half), toY(s)); ctx.lineTo(toX(half), toY(s)); ctx.stroke();
   }
   ctx.setLineDash([]);
+  // Builder #17 — THE DIAGONAL AVENUE on the map: the new main drag
+  // from the ring at (-145,85) to the ring at (85,-145), full weight
+  // with a dashed yellow centre, so the minimap reads different from
+  // #16 at a glance — a diagonal across the island, not just curves.
+  const diagLine = (x0, z0, x1, z1) => {
+    ctx.beginPath(); ctx.moveTo(toX(x0), toY(z0)); ctx.lineTo(toX(x1), toY(z1)); ctx.stroke();
+  };
+  ctx.strokeStyle = '#3a3340';
+  ctx.lineWidth = 3;
+  diagLine(-145, 85, 85, -145);
+  ctx.strokeStyle = '#ffd23d';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([4, 3]);
+  diagLine(-145, 85, 85, -145);
+  ctx.setLineDash([]);
+  // Palm dots along the diagonal, like the ring's.
+  ctx.fillStyle = '#2fae5a';
+  for (let i = 0; i < 8; i += 1) {
+    const t = -140 + i * 40;
+    ctx.beginPath();
+    ctx.arc(toX(-30 + t * 0.7071), toY(-30 - t * 0.7071), 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
   // Palm dots along the beach ring, so the sand reads as a palm-lined shore.
   ctx.fillStyle = '#2fae5a';
   for (let i = 0; i < 16; i += 1) {

@@ -129,7 +129,7 @@ export function buildCity(scene, theme, seed, textures) {
   const facadeMats = facadeTexs.map((tex) => (tex
     ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0.05 })
     : null));
-  // Builder #14b — STUCCO, NOT A POSTER (fadli: "rumah nya kyk tempelan
+  // Builder #14c — STUCCO, NOT A POSTER (fadli: "rumah nya kyk tempelan
   // gambar, ganti yg lebih realistic"). The tall-tower photo renders are
   // portraits; mapped onto a 13-wide, 5-high shop they squash into a
   // wide flat picture of a building — printed arches and balconies with
@@ -488,7 +488,7 @@ export function buildCity(scene, theme, seed, textures) {
   const balcRails = [];
   const balcPosts = [];
   const pilasters = [];
-  // Builder #14b — one balcony = slab + OPEN railing (a thin top bar on
+  // Builder #14c — one balcony = slab + OPEN railing (a thin top bar on
   // four posts), not a solid panel: the old solid 0.9-tall rail read as a
   // brown sign board pasted on the wall and hid the lit window behind
   // it. The open railing lets the window show between slab and top bar.
@@ -569,7 +569,7 @@ export function buildCity(scene, theme, seed, textures) {
           ? Math.min(h0, nearCoverCamera ? 5 : 8)
           : inBoardSightline ? Math.min(h0, 7)
             : byCoverStreetNorth ? Math.min(h0, 18) : h0;
-        // Builder #14 — MOVE THE HOUSE OFF THE ROAD (fadli: "knp ada rmh
+        // Builder #14c — MOVE THE HOUSE OFF THE ROAD (fadli: "knp ada rmh
         // tengah jalan"). The probe puts the (133,-11) shop's centre at
         // screen (0.508, 0.511) in the cover frame — the vanishing point —
         // so the chase drove straight into its photo-facade west face and
@@ -597,7 +597,7 @@ export function buildCity(scene, theme, seed, textures) {
         // read as blank walls from the chase camera (the #11 yellow drum).
         const isDrum = !isShopRow && !isCasino && h > 15 && hash2(bx + 77, bz + 31) > 0.6
           && !byCoverStreetNorth;
-        // Builder #14b: shops wear stucco, not the squashed tower photo —
+        // Builder #14c: shops wear stucco, not the squashed tower photo —
         // a portrait render stretched over a 13x5 shop front is what made
         // the mid-frame row read as pasted pictures. The stucco takes the
         // shop's own tint, so each shop keeps its colour identity.
@@ -733,7 +733,7 @@ export function buildCity(scene, theme, seed, textures) {
             }
           }
         }
-        // Builder #14b — SHOPS GET REAL RELIEF TOO (fadli: "tempelan"):
+        // Builder #14c — SHOPS GET REAL RELIEF TOO (fadli: "tempelan"):
         // a shop was a bare photo box — no balconies, no pilasters, no
         // setback — so the whole mid-frame row in the cover read as
         // pictures pasted on boxes. Every shop now wears one balcony row
@@ -848,7 +848,7 @@ export function buildCity(scene, theme, seed, textures) {
         }
         // Builder #12 — SIGN BAND over the ground floor of low buildings:
         // a lit horizontal band above the shopfront, so the street level
-        // carries signage, not a blank wall. Builder #14b: low shops
+        // carries signage, not a blank wall. Builder #14c: low shops
         // (h<=6) get it always — their upper wall is short, so the band
         // never meets a window row; taller shops skip it, because their
         // uncapped window rows now run up to the balcony line and the
@@ -876,7 +876,7 @@ export function buildCity(scene, theme, seed, textures) {
             group.add(stripe);
           }
           // Shopfront glass: a thin glazed box with two mullions, not a
-          // flat plane — Builder #14: the old plane read as a bright
+          // flat plane — Builder #14c: the old plane read as a bright
           // sticker on the wall; the box has real depth and the mullions
           // break it into three lights.
           if (isShopRow) {
@@ -948,10 +948,10 @@ export function buildCity(scene, theme, seed, textures) {
             }
           }
         } else if (isShopRow) {
-          // Builder #14b: shop windows run every floor up to the balcony
+          // Builder #14c: shop windows run every floor up to the balcony
           // line, not just one floor — a 7–11 high shop with a single
           // window row left a blank stucco band under its balcony.
-          // Builder #14b, second look: the sunset palette lights only
+          // Builder #14c, second look: the sunset palette lights only
           // 28% of windows, so a shop face wore one lonely square — shops
           // light 75%, so the facades read busy at golden hour. The gate
           // still draws one rng() per slot, so the stream is untouched.
@@ -1052,7 +1052,7 @@ export function buildCity(scene, theme, seed, textures) {
   });
   balcRailsMesh.count = balcRails.length;
   group.add(balcRailsMesh);
-  // Builder #14b — the railing posts: thin bronze uprights from the slab
+  // Builder #14c — the railing posts: thin bronze uprights from the slab
   // to the top bar, so the balcony reads open instead of boarded up.
   const balcPostGeo = new THREE.BoxGeometry(0.09, 0.9, 0.09);
   const balcPostsMesh = new THREE.InstancedMesh(balcPostGeo, balcRailMat, Math.max(1, balcPosts.length));
@@ -1082,7 +1082,7 @@ export function buildCity(scene, theme, seed, textures) {
   // colour from the palette's window colours (warm amber, cool blue, rose,
   // pale gold), keyed off its position, so the facades sparkle in varied
   // light instead of one flat yellow grid.
-  // Builder #14 — REAL 3D WINDOWS (fadli: "knp masih ada tempelan"): the
+  // Builder #14c — REAL 3D WINDOWS (fadli: "knp masih ada tempelan"): the
   // old lit window was one flat plane 0.06 proud of the wall, so from the
   // chase camera it read as a white sticker pasted on the facade. A window
   // is now a five-piece unit with real depth: a lit pane set 0.14 back
@@ -1261,7 +1261,7 @@ export function buildCity(scene, theme, seed, textures) {
   const streetPalms = [];
   for (let z = -160; z <= 160; z += 32) {
     if (CITY.streets.some((s) => Math.abs(z - s) < 7)) continue;
-    // Builder #14 — the avenue palms at z=±32 stand 8 units off the two
+    // Builder #14c — the avenue palms at z=±32 stand 8 units off the two
     // shot streets (±24), so the (111.4,32) palm is 6 units from the
     // driving camera and its fronds rake across a third of the driving
     // frame. Palms that close to a shot street move 12 units further down
@@ -1285,7 +1285,7 @@ export function buildCity(scene, theme, seed, textures) {
   // coconut clusters. A frond is a long tapered cone whose base sits at
   // the crown and whose tip droops 10–35° below horizontal, fanned around
   // the trunk; the two greens alternate by position hash.
-  // Builder #14 — REAL 3D CROWNS (fadli: "knp masih ada tempelan"): the
+  // Builder #14c — REAL 3D CROWNS (fadli: "knp masih ada tempelan"): the
   // old frond was a 5-sided cone squashed flat (0.45), so each crown read
   // as one flat green fan. Fronds are now rounder (6 sides, 0.8 squash,
   // wider radius) with varied lengths, plus three short upright fronds in
@@ -1471,7 +1471,7 @@ export function buildCity(scene, theme, seed, textures) {
   // group's local -X face is the painted face; rotY turns its normal
   // toward the camera (FLAMINGO -PI/4 faces south-west down the street,
   // VICE +0.4 faces north-west). Poles, glow and light ride in the group.
-  // Builder #14 — A REAL CABINET, NOT A POSTER (fadli: "knp masih ada
+  // Builder #14c — A REAL CABINET, NOT A POSTER (fadli: "knp masih ada
   // tempelan"): the old board was one 0.6-thick box, so from the chase it
   // read as a poster nailed to the sky. The face now sits 0.2 recessed
   // inside a dark bezel (top/bottom rails + side stiles, proud of the

@@ -8,26 +8,61 @@
 // to explore on foot and by car, traffic and pedestrians, cars to steal, a
 // wanted level with police who chase, three chained missions, combat, a HUD
 // with a minimap, a start screen and a save in localStorage. The shipped look
-// is golden hour over a beach city: a pink-orange gradient sky with a low sun
-// and warm haze, pastel towers with varied lit windows, palms along the
-// beachfront avenues, colourful beach umbrellas, a big neon billboard and a
-// ferris wheel on the sand, saturated car paint, crosswalks and kerb-parked
-// cars on busy streets, and a denser HUD — a VSPD response list, a
-// mission-giver dialog bar, a radio bar, weapon slots, a stage bar, a
+// is golden hour over a beach city: a four-band violet-pink-orange-gold sky
+// with the sun low over the ocean at the end of the east streets, a glare
+// sprite over the sun disc, dark wet-looking asphalt with a yellow centre
+// line and a sun streak, saturated towers with warm lit windows on all four
+// faces, glowing street lamps, palms lining the beachfront avenue and the
+// east streets, a bright sand beach with colourful umbrellas and towels, a
+// big neon billboard that glows pink and spills light, and a ferris wheel
+// on the sand, saturated car paint, crosswalks and kerb-parked cars on busy
+// streets, and a denser HUD — a VSPD response list, a mission-giver dialog
+// bar with a drawn portrait, a radio bar, weapon slots, a stage bar, a
 // day/clock line and a district name — all drawn from state the game already
-// owns, so nothing about play itself changed.
+// owns, so nothing about play itself changed. The glow is faked with
+// additive sprites and one billboard point light, not a post-processing
+// pass, so the frame stays fast and deterministic.
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
 //   mkdir -p out && MAKEFUN_OUTPUT_DIR=out node main.ts
 
-import { cpSync, existsSync, mkdirSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildDossier } from './vendor/makefun-game.ts';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
 const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
+
+// The coastal look the entry ships: the palette values game/src/config.js
+// must carry, so a stray edit that drops the beach-city look fails here
+// instead of handing in a regressed entry. Each entry is a literal the
+// config file must contain (a sun disc over the ocean, dark asphalt, bright
+// sand and ocean, most windows lit).
+const COASTAL_THEME = [
+  ['sun disc over the ocean', 'sunDiscPosition: [480, 26, 10]'],
+  ['dark asphalt', "roadTint: '#2e2a33'"],
+  ['bright sand', 'sandTint: 0xf2d491'],
+  ['bright ocean', 'oceanTint: 0x1a8fc8'],
+  ['most windows lit', 'windowLit: 0.58'],
+];
+const configText = readFileSync(join(here, 'game', 'src', 'config.js'), 'utf8');
+for (const [label, needle] of COASTAL_THEME) {
+  if (!configText.includes(needle)) {
+    throw new Error(`coastal theme check failed: game/src/config.js is missing ${label} (${needle})`);
+  }
+}
+// The glow pass lives in the game modules: the additive halos in city.js
+// (billboard, lamps, ferris wheel) and the filmic tone mapping in render.js.
+const cityText = readFileSync(join(here, 'game', 'src', 'city.js'), 'utf8');
+if (!cityText.includes('AdditiveBlending')) {
+  throw new Error('coastal theme check failed: game/src/city.js is missing the additive glow pass (AdditiveBlending)');
+}
+const renderText = readFileSync(join(here, 'game', 'src', 'render.js'), 'utf8');
+if (!renderText.includes('ACESFilmicToneMapping')) {
+  throw new Error('coastal theme check failed: game/src/render.js is missing the filmic tone mapping (ACESFilmicToneMapping)');
+}
 
 // The gate refuses an entry with fewer than 3 screenshots, so fail loudly
 // here instead of handing in a dossier the scorer would reject.

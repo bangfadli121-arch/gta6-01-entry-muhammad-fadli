@@ -25,7 +25,7 @@ const FILES = {
 
 const TIMEOUT_MS = 8000;
 
-export function loadGameTextures() {
+export function loadGameTextures(timeoutMs = TIMEOUT_MS) {
   const loader = new THREE.TextureLoader();
   const base = new URL('../assets/', import.meta.url);
   const names = Object.keys(FILES);
@@ -59,7 +59,7 @@ export function loadGameTextures() {
       names.forEach((name) => { map[name] = null; });
       map.__status = { loaded: [], failed: names.slice(), timedOut: true };
       resolve(map);
-    }, TIMEOUT_MS);
+    }, timeoutMs);
   });
   return Promise.race([all, timeout]);
 }

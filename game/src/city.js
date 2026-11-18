@@ -93,12 +93,33 @@ export function clampToWorld(x, z, margin = 2) {
   };
 }
 
-export function buildCity(scene, theme, seed) {
+export function buildCity(scene, theme, seed, textures) {
   const palette = PALETTES[theme];
   const rng = createRandom(seed ^ 0xC177);
   const group = new THREE.Group();
   group.name = 'city';
   scene.add(group);
+
+  // GPU facade textures (builder #10): the three art-deco renders, each
+  // cloned with only its top 85% mapped — the bottom ~15% of every render
+  // carries a garbled sign band and street, so it is cropped by texture
+  // offset. Without textures every tower falls back to its flat tint.
+  const facadeTexs = [];
+  if (textures) {
+    for (const key of ['facadeTeal', 'facadePink', 'facadeYellow']) {
+      const src = textures[key];
+      if (!src) { facadeTexs.push(null); continue; }
+      const tex = src.clone();
+      tex.needsUpdate = true;
+      tex.repeat.set(1, 0.85);
+      tex.offset.set(0, 0.15);
+      tex.anisotropy = 4;
+      facadeTexs.push(tex);
+    }
+  }
+  const facadeMats = facadeTexs.map((tex) => (tex
+    ? new THREE.MeshStandardMaterial({ map: tex, roughness: 0.85, metalness: 0.05 })
+    : null));
 
   const buildings = [];
   const groundMat = new THREE.MeshStandardMaterial({ color: palette.groundTint, roughness: 1 });
@@ -332,7 +353,19 @@ export function buildCity(scene, theme, seed) {
         const mat = isShopRow
           ? shopRoofMats[Math.floor(hash2(bx, bz) * shopRoofMats.length) % shopRoofMats.length]
           : pick(rng, tintMats);
-        const tower = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+        // Builder #10: the four side faces wear the photographed art-deco
+        // facade (variant keyed off the tower's position, so the same
+        // tower always shows the same facade), the top and bottom keep the
+        // flat tint — a tower is a photographed building now, not a painted
+        // box with a grid of square windows. Without textures the whole box
+        // keeps the flat tint exactly as before.
+        const facade = facadeMats.length
+          ? facadeMats[Math.floor(hash2(bx + 51, bz + 23) * facadeMats.length) % facadeMats.length]
+          : null;
+        const tower = new THREE.Mesh(
+          new THREE.BoxGeometry(w, h, d),
+          facade ? [facade, facade, mat, mat, facade, facade] : mat,
+        );
         tower.position.set(bx, h / 2, bz);
         group.add(tower);
         const roof = new THREE.Mesh(
@@ -352,20 +385,38 @@ export function buildCity(scene, theme, seed) {
         group.add(cap);
         // A stepped crown on tall towers: a smaller box set back on the
         // roof, in a contrasting tint, so the skyline steps instead of
-        // ending in a flat slab.
+        // ending in a flat slab. Builder #10: half the tall towers get a
+        // rounded pavilion instead — a faceted drum that echoes the
+        // art-deco curved corners of the photographed facades — so the
+        // roofline varies in shape, not just in height.
         if (!isShopRow && h > 17) {
-          const crown = new THREE.Mesh(
-            new THREE.BoxGeometry(w * 0.55, 2 + hash2(bx + 41, bz + 3) * 2, d * 0.55),
-            tintMats[Math.floor(hash2(bx + 21, bz + 3) * tintMats.length) % tintMats.length],
-          );
-          crown.position.set(bx, h + 1.4, bz);
-          group.add(crown);
-          const crownCap = new THREE.Mesh(
-            new THREE.BoxGeometry(w * 0.55 + 0.4, 0.5, d * 0.55 + 0.4),
-            accent,
-          );
-          crownCap.position.set(bx, h + 3.1, bz);
-          group.add(crownCap);
+          if (hash2(bx + 61, bz + 17) > 0.5) {
+            const drum = new THREE.Mesh(
+              new THREE.CylinderGeometry(w * 0.28, w * 0.33, 2.6, 10),
+              tintMats[Math.floor(hash2(bx + 21, bz + 3) * tintMats.length) % tintMats.length],
+            );
+            drum.position.set(bx, h + 1.3, bz);
+            group.add(drum);
+            const drumCap = new THREE.Mesh(
+              new THREE.CylinderGeometry(w * 0.28 + 0.2, w * 0.28 + 0.2, 0.5, 10),
+              accent,
+            );
+            drumCap.position.set(bx, h + 2.85, bz);
+            group.add(drumCap);
+          } else {
+            const crown = new THREE.Mesh(
+              new THREE.BoxGeometry(w * 0.55, 2 + hash2(bx + 41, bz + 3) * 2, d * 0.55),
+              tintMats[Math.floor(hash2(bx + 21, bz + 3) * tintMats.length) % tintMats.length],
+            );
+            crown.position.set(bx, h + 1.4, bz);
+            group.add(crown);
+            const crownCap = new THREE.Mesh(
+              new THREE.BoxGeometry(w * 0.55 + 0.4, 0.5, d * 0.55 + 0.4),
+              accent,
+            );
+            crownCap.position.set(bx, h + 3.1, bz);
+            group.add(crownCap);
+          }
         }
         // Balconies on the street-facing side of tall towers: thin slabs
         // with a rail edge, so the upper floors have depth.
@@ -406,7 +457,7 @@ export function buildCity(scene, theme, seed) {
           if (isShopRow) {
             const glass = new THREE.Mesh(
               new THREE.PlaneGeometry(w * 0.62, 2.2),
-              new THREE.MeshBasicMaterial({ color: 0xbfe8ff, transparent: true, opacity: 0.9 }),
+              new THREE.MeshBasicMaterial({ color: 0x8fc8e0, transparent: true, opacity: 0.65 }),
             );
             glass.position.set(bx, 1.9, bz + d / 2 + 0.06);
             group.add(glass);
@@ -489,15 +540,39 @@ export function buildCity(scene, theme, seed) {
   group.add(windows);
 
   // The beach: a bright sand strip, then the ocean, both east of the last street.
+  // Builder #10: both wear the photographed textures when they loaded — the
+  // sand tiles along the beach, the ocean samples only the right strip of
+  // its render (pure water and foam; the render's diagonal sand bar is
+  // cropped out by offset) and tiles that strip along the shore. Without
+  // textures both fall back to their flat colours exactly as before.
+  let sandTex = null;
+  if (textures && textures.sand) {
+    sandTex = textures.sand.clone();
+    sandTex.needsUpdate = true;
+    sandTex.wrapS = THREE.RepeatWrapping;
+    sandTex.wrapT = THREE.RepeatWrapping;
+    sandTex.repeat.set(2, 12);
+    sandTex.anisotropy = 4;
+  }
   const sand = new THREE.Mesh(
     new THREE.PlaneGeometry(CITY.waterX - CITY.beachX + 40, 440),
-    new THREE.MeshStandardMaterial({ color: palette.sandTint ?? 0xc9b078, roughness: 1 }),
+    new THREE.MeshStandardMaterial({ color: sandTex ? 0xffffff : (palette.sandTint ?? 0xc9b078), map: sandTex, roughness: 1 }),
   );
   sand.rotation.x = -Math.PI / 2;
   sand.position.set((CITY.beachX + CITY.waterX) / 2 + 8, 0.03, 0);
   group.add(sand);
+  let oceanTex = null;
+  if (textures && textures.ocean) {
+    oceanTex = textures.ocean.clone();
+    oceanTex.needsUpdate = true;
+    oceanTex.wrapS = THREE.ClampToEdgeWrapping;
+    oceanTex.wrapT = THREE.RepeatWrapping;
+    oceanTex.repeat.set(0.45, 4);
+    oceanTex.offset.set(0.55, 0);
+    oceanTex.anisotropy = 4;
+  }
   const oceanMat = new THREE.MeshStandardMaterial({
-    color: palette.oceanTint ?? 0x1a5a8a, roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.94,
+    color: oceanTex ? 0xffffff : (palette.oceanTint ?? 0x1a5a8a), map: oceanTex, roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.94,
   });
   const ocean = new THREE.Mesh(new THREE.PlaneGeometry(180, 440), oceanMat);
   ocean.rotation.x = -Math.PI / 2;
@@ -725,63 +800,100 @@ export function buildCity(scene, theme, seed) {
     group.add(towel);
   }
 
-  // The big neon billboard on the beachfront, facing the city: a canvas
-  // texture painted at boot (gradient sky, pink neon letters, tagline), on
-  // two poles over the promenade. Original art, drawn by the game itself.
-  const boardCanvas = document.createElement('canvas');
-  boardCanvas.width = 512;
-  boardCanvas.height = 224;
-  const bctx = boardCanvas.getContext('2d');
-  const bgrad = bctx.createLinearGradient(0, 0, 0, 224);
-  bgrad.addColorStop(0, '#1a0533');
-  bgrad.addColorStop(0.5, '#ff2a6a');
-  bgrad.addColorStop(1, '#ffb347');
-  bctx.fillStyle = bgrad;
-  bctx.fillRect(0, 0, 512, 224);
-  bctx.strokeStyle = '#ffd94a';
-  bctx.lineWidth = 12;
-  bctx.strokeRect(8, 8, 496, 208);
-  bctx.shadowColor = '#ff2a6a';
-  bctx.shadowBlur = 18;
-  bctx.fillStyle = '#ffffff';
-  bctx.font = '900 68px Arial, sans-serif';
-  bctx.textAlign = 'center';
-  bctx.fillText('VICE SHORES', 256, 104);
-  bctx.fillStyle = '#ffe9a0';
-  bctx.font = '700 34px Arial, sans-serif';
-  bctx.fillText('RIDE THE SUNSET', 256, 164);
-  bctx.fillStyle = '#ffd94a';
-  bctx.font = '700 22px Arial, sans-serif';
-  bctx.fillText('PALMS · NEON · NO SPEED LIMIT', 256, 200);
-  const boardTex = new THREE.CanvasTexture(boardCanvas);
-  boardTex.colorSpace = THREE.SRGBColorSpace;
-  const boardPoleMat = new THREE.MeshStandardMaterial({ color: 0x2a2a32, roughness: 0.7, metalness: 0.5 });
-  for (const dz of [-10, 10]) {
-    const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 12.5, 8), boardPoleMat);
-    pole.position.set(164, 6.25, -58 + dz);
-    group.add(pole);
+  // The big neon billboards on the beachfront, facing the city: the
+  // photographed neon art as the background, with the game's own sharp
+  // lettering painted over a dark panel in the middle — the generated
+  // text in the renders is garbled ("SUNIG'S", "FOORN..."), so it stays
+  // hidden behind the panel while the neon palms and sunsets show around
+  // it. Without the art the boards fall back to the painted gradient they
+  // always had. Two boards now: VICE SHORES north of the promenade and
+  // FLAMINGO FM south of it, so the cover frame carries a billboard on
+  // each side of the chase instead of one cut off at the frame's edge.
+  function paintBoard(art, spec) {
+    const c = document.createElement('canvas');
+    c.width = 512;
+    c.height = 224;
+    const ctx = c.getContext('2d');
+    if (art) {
+      // Cover-fit the 768x512 render into the 512x224 board.
+      ctx.drawImage(art, 0, 88, 768, 336, 0, 0, 512, 224);
+    } else {
+      const grad = ctx.createLinearGradient(0, 0, 0, 224);
+      grad.addColorStop(0, '#1a0533');
+      grad.addColorStop(0.5, '#ff2a6a');
+      grad.addColorStop(1, '#ffb347');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 512, 224);
+    }
+    const [px, py, pw, ph] = spec.panel;
+    ctx.fillStyle = 'rgba(12,4,32,0.88)';
+    ctx.fillRect(px, py, pw, ph);
+    ctx.strokeStyle = '#ffd94a';
+    ctx.lineWidth = 6;
+    ctx.strokeRect(px + 3, py + 3, pw - 6, ph - 6);
+    ctx.textAlign = 'center';
+    ctx.shadowColor = '#ff2a6a';
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = '#ffffff';
+    ctx.font = `900 ${spec.titleSize}px Arial, sans-serif`;
+    ctx.fillText(spec.title, 256, spec.titleY);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffe9a0';
+    ctx.font = '700 30px Arial, sans-serif';
+    ctx.fillText(spec.sub, 256, spec.subY);
+    if (spec.tag) {
+      ctx.fillStyle = '#ffd94a';
+      ctx.font = '700 20px Arial, sans-serif';
+      if (spec.tagAlign === 'left') {
+        ctx.textAlign = 'left';
+        ctx.fillText(spec.tag, 30, spec.tagY);
+      } else {
+        ctx.fillText(spec.tag, 256, spec.tagY);
+      }
+    }
+    const tex = new THREE.CanvasTexture(c);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
   }
-  const board = new THREE.Mesh(
-    new THREE.BoxGeometry(0.6, 12, 28),
-    new THREE.MeshBasicMaterial({ map: boardTex, toneMapped: false }),
-  );
-  board.position.set(164, 17, -58);
-  group.add(board);
-  // The billboard glows: a pink additive halo sprite floating just in
-  // front of the board, and one real pink point light spilling neon onto
-  // the promenade palms and sand, so the board reads as a light source,
-  // not a painted panel. (Physical light units: intensity 80 at decay 1.6
-  // throws a visible wash out to ~30 units.)
-  const boardGlow = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: makeGlowTexture(), color: 0xff5a7a, transparent: true, opacity: 0.6,
-    blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
-  }));
-  boardGlow.position.set(162.5, 17, -58);
-  boardGlow.scale.set(80, 60, 1);
-  group.add(boardGlow);
-  const boardLight = new THREE.PointLight(0xff5a7a, 80, 80, 1.6);
-  boardLight.position.set(160, 16, -58);
-  group.add(boardLight);
+  const boardPoleMat = new THREE.MeshStandardMaterial({ color: 0x2a2a32, roughness: 0.7, metalness: 0.5 });
+  function addBillboard(z, art, spec, glowColor) {
+    for (const dz of [-10, 10]) {
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 12.5, 8), boardPoleMat);
+      pole.position.set(164, 6.25, z + dz);
+      group.add(pole);
+    }
+    const board = new THREE.Mesh(
+      new THREE.BoxGeometry(0.6, 12, 28),
+      new THREE.MeshBasicMaterial({ map: paintBoard(art, spec), toneMapped: false }),
+    );
+    board.position.set(164, 17, z);
+    group.add(board);
+    // The billboard glows: a compact additive halo sprite floating just
+    // in front of the board, and one real point light spilling neon onto
+    // the promenade palms and sand, so the board reads as a light source,
+    // not a painted panel. The halo stays tight to the board: the old
+    // 80-wide sprite washed out the ferris wheel standing behind it in
+    // the cover frame. (Physical light units: intensity 80 at decay 1.6
+    // throws a visible wash out to ~30 units.)
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: makeGlowTexture(), color: glowColor, transparent: true, opacity: 0.5,
+      blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+    }));
+    glow.position.set(162.5, 17, z);
+    glow.scale.set(52, 40, 1);
+    group.add(glow);
+    const light = new THREE.PointLight(glowColor, 80, 80, 1.6);
+    light.position.set(160, 16, z);
+    group.add(light);
+  }
+  addBillboard(-58, textures && textures.billboardVice ? textures.billboardVice.image : null, {
+    panel: [26, 26, 460, 158], title: 'VICE SHORES', titleSize: 62, titleY: 100,
+    sub: 'RIDE THE SUNSET', subY: 148, tag: 'PALMS · NEON · NO SPEED LIMIT', tagY: 210,
+  }, 0xff5a7a);
+  addBillboard(40, textures && textures.billboardFlamingo ? textures.billboardFlamingo.image : null, {
+    panel: [16, 4, 480, 112], title: 'FLAMINGO FM', titleSize: 56, titleY: 76,
+    sub: 'NEON NIGHTS · OCEAN DRIVE', subY: 106, tag: 'PINK HORIZON · LIVE', tagY: 210, tagAlign: 'left',
+  }, 0xff5ad8);
 
   // The ferris wheel on the beach: a glowing rim, four spokes and eight
   // coloured gondolas, a landmark on the horizon. It stands north of the

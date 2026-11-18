@@ -273,9 +273,12 @@ export function createRenderer(canvas, theme, textures) {
    * field of view widens a little with speed, so fast driving feels fast.
    */
   function updateCamera(player, dt) {
-    const dist = player.inCar ? 12.5 : 8.5;
-    const height = player.inCar ? 4.7 : 3.6;
-    const wantFov = 62 + Math.min(8, Math.abs(player.speed) * 0.14);
+    // Builder #11 (Halcyon-style): LOW and CLOSE behind the car — the
+    // player's car fills the bottom of the frame instead of shrinking to
+    // a speck down a long empty road.
+    const dist = player.inCar ? 9.0 : 8.5;
+    const height = player.inCar ? 4.6 : 3.8;
+    const wantFov = 64 + Math.min(8, Math.abs(player.speed) * 0.14);
     if (Math.abs(camera.fov - wantFov) > 0.1) {
       camera.fov = wantFov;
       camera.updateProjectionMatrix();
@@ -295,35 +298,31 @@ export function createRenderer(canvas, theme, textures) {
     camera.lookAt(camState.lookX, camState.lookY, camState.lookZ);
   }
 
-  /** Place the camera for a wide establishing view of the city (title screen):
-   * low in the south-west, looking east-south-east along the coast toward
-   * the beach, the ferris wheel and the billboard, so the title sits over
-   * a sunset shoreline — sand, surf, palms and shopfronts in the lower
-   * frame, bright sky above — instead of a dark backdrop or a grid of
-   * rooftops. The camera sits low enough that the beachfront shop row
-   * and the palms lead the eye to the wheel and the sun. Take 2 retune:
-   * pulled further south and lower, looking further east, so the wheel,
-   * the billboard and the sun are all inside the frame above the card.
-   * Take 3 retune: that lookAt sat dead on the wheel, so the card hid
-   * both landmarks — now the view swings further east, which pushes the
-   * wheel and the billboard into the clear strip left of the card while
-   * the ocean and bright sky fill the rest of the frame. Take 3 second
-   * pass: the first swing (lookAt 245,8,70) still left both landmarks
-   * inside the card — the camera's aspect is 1280/480, so the card
-   * covers ~38 degrees either side of centre — so the view swings to
-   * nearly due east (lookAt 258,8,134), putting the wheel and billboard
-   * ~43 degrees off-axis, in the clear strip left of the card. */
+  /** Place the camera for a low establishing view of the island (title
+   * screen): just off the south shore, low over the ring boulevard,
+   * looking north-east along the coast toward the ferris wheel, the
+   * billboards and the low sun — sand, surf, palms and shopfronts in the
+   * lower frame, bright sky above — instead of a dark backdrop or a grid
+   * of rooftops. The compact title sits in a slim strip at the bottom,
+   * so the city stays visible above it. The camera looks nearly due east
+   * past the wheel, which puts the wheel and the billboard ~40 degrees
+   * off-axis, in the clear upper frame. */
   function setEstablishing() {
-    camera.position.set(-40, 24, 165);
-    camera.lookAt(258, 8, 134);
+    // Builder #11 retune: higher and further south, looking north-east —
+    // the sightline now clears the mid-ground rooftops, so the ferris
+    // wheel, both billboards and the low sun are all in the frame above
+    // the slim title strip, with the ring boulevard curving through the
+    // foreground instead of a tower filling the left of the frame.
+    camera.position.set(-30, 40, 170);
+    camera.lookAt(220, 14, -70);
     // Reset the chase state to match, so the first play frame does not swoop
     // the camera all the way from the title view to behind the player.
-    camState.x = -40;
-    camState.y = 24;
-    camState.z = 165;
-    camState.lookX = 258;
-    camState.lookY = 8;
-    camState.lookZ = 134;
+    camState.x = -30;
+    camState.y = 40;
+    camState.z = 170;
+    camState.lookX = 220;
+    camState.lookY = 14;
+    camState.lookZ = -70;
   }
 
   function render() {

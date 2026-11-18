@@ -10,15 +10,15 @@
   html, body { margin: 0; height: 100%; overflow: hidden; background: linear-gradient(180deg, #5a3d8a 0%, #ff8a4d 55%, #2a1040 100%); font-family: 'Segoe UI', Arial, sans-serif; }
   #view { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
   #hud { position: fixed; inset: 0; pointer-events: none; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.8); }
-  .panel { background: rgba(30, 10, 40, .55); border: 1px solid rgba(255,217,74,.28); border-radius: 8px; }
-  #cashBox { position: absolute; top: 12px; left: 12px; padding: 8px 14px; font-size: 24px; font-weight: 800; color: #7dff9a; }
+  .panel { background: rgba(30, 10, 40, .55); border: 1px solid rgba(255,217,74,.28); border-radius: 14px; }
+  #cashBox { position: absolute; top: 12px; left: 12px; padding: 8px 14px; font-size: 24px; font-weight: 800; color: #7dff9a; border-top: 3px solid #7dff9a; }
   #cashBox small { display: block; font-size: 11px; letter-spacing: 2px; color: #cfe8d4; font-weight: 600; }
   #cashBox #clockLine { color: #ffd9a0; }
-  #wantedBox { position: absolute; top: 12px; right: 12px; padding: 8px 14px; text-align: right; }
+  #wantedBox { position: absolute; top: 12px; right: 12px; padding: 8px 14px; text-align: right; border-top: 3px solid #ff5a7a; }
   #wantedBox .stars { font-size: 30px; letter-spacing: 4px; color: #ffd94a; line-height: 1; }
   #wantedBox .stars .off { color: rgba(255,255,255,.28); }
   #wantedBox small { font-size: 11px; letter-spacing: 2px; color: #ffd9a0; font-weight: 700; }
-  #policeList { position: absolute; top: 96px; right: 12px; width: 216px; padding: 6px 10px; font-size: 12px; font-weight: 700; }
+  #policeList { position: absolute; top: 96px; right: 12px; width: 216px; padding: 6px 10px; font-size: 12px; font-weight: 700; border-top: 3px solid #37e0ff; }
   #policeList .plTitle { font-size: 11px; letter-spacing: 2px; color: #9fe8ff; font-weight: 800; margin-bottom: 2px; }
   #policeList .unit { display: flex; justify-content: space-between; gap: 6px; padding: 1px 0; }
   #policeList .unit .st { font-weight: 800; }
@@ -26,14 +26,14 @@
   #policeList .st.PURSUIT { color: #ffb347; }
   #policeList .st.ENROUTE { color: #ffe9a0; }
   #policeList .st.STUCK { color: #c9b8ff; }
-  #objectiveBox { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 8px 18px; text-align: center; max-width: 560px; }
+  #objectiveBox { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 8px 18px; text-align: center; max-width: 560px; border-top: 3px solid #ffd94a; }
   #objectiveTitle { font-size: 13px; letter-spacing: 3px; color: #ffd94a; font-weight: 800; }
   #objectiveText { font-size: 19px; font-weight: 700; }
   #objectiveSub { font-size: 12px; color: #d8d8ff; }
   #stageBarOuter { height: 6px; background: rgba(0,0,0,.55); border-radius: 3px; margin-top: 6px; overflow: hidden; }
   #stageBar { height: 100%; width: 50%; background: linear-gradient(90deg, #ffd94a, #ff8a3d); }
   #stageText { font-size: 11px; letter-spacing: 2px; color: #ffe9a0; font-weight: 700; margin-top: 3px; }
-  #healthBox { position: absolute; left: 12px; top: 92px; width: 190px; padding: 8px 10px; }
+  #healthBox { position: absolute; left: 12px; top: 92px; width: 190px; padding: 8px 10px; border-top: 3px solid #ff5a5a; }
   #healthBox .lbl { font-size: 11px; letter-spacing: 2px; font-weight: 700; color: #ffb3b3; }
   #healthBarOuter { height: 12px; background: rgba(0,0,0,.6); border-radius: 6px; margin-top: 4px; overflow: hidden; }
   #healthBar { height: 100%; width: 100%; background: linear-gradient(90deg, #ff5a5a, #ff9a3d); }
@@ -47,12 +47,17 @@
   #minimapWrap { position: absolute; left: 12px; bottom: 12px; padding: 6px; }
   #minimap { display: block; border-radius: 50%; border: 2px solid rgba(255,217,74,.65); box-sizing: border-box; }
   #minimapLabel { display: table; margin: 3px auto 0; padding: 2px 10px; background: rgba(10,5,25,.55); border-radius: 10px; text-align: center; font-size: 13px; letter-spacing: 3px; font-weight: 800; color: #9fe8ff; }
-  #speedBox { position: absolute; right: 12px; bottom: 12px; padding: 8px 16px; text-align: right; }
-  #speedNum { font-size: 34px; font-weight: 800; line-height: 1; }
-  #speedBox small { font-size: 11px; letter-spacing: 2px; color: #cfe8ff; font-weight: 700; }
-  #vehicleLine { font-size: 11px; letter-spacing: 2px; color: #ffd9a0; font-weight: 700; margin-top: 2px; }
-  #dialogBar { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; max-width: 640px; padding: 8px 14px; text-align: left; }
-  #dialogFace { width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg, #ff5a7a, #ffb347); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; flex: none; text-shadow: none; }
+  /* Round speedometer dial: a 128px circle with a gold arc that grows with
+     speed, the big number in the middle — the winners' round dial. */
+  #speedBox { position: absolute; right: 12px; bottom: 12px; width: 128px; height: 128px; border-radius: 50%; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; border-top: 3px solid #7df9ff; }
+  #speedBox svg { position: absolute; inset: 0; width: 128px; height: 128px; transform: rotate(-90deg); pointer-events: none; }
+  #speedBox .track { fill: none; stroke: rgba(255,255,255,.18); stroke-width: 5; }
+  #speedRing { fill: none; stroke: #ffd94a; stroke-width: 5; stroke-linecap: round; stroke-dasharray: 364; stroke-dashoffset: 364; }
+  #speedNum { font-size: 40px; font-weight: 800; line-height: 1; position: relative; }
+  #speedBox small { font-size: 10px; letter-spacing: 2px; color: #cfe8ff; font-weight: 700; position: relative; }
+  #vehicleLine { font-size: 10px; letter-spacing: 2px; color: #ffd9a0; font-weight: 700; margin-top: 2px; position: relative; }
+  #dialogBar { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; max-width: 640px; padding: 8px 14px; text-align: left; border-left: 3px solid #ff5a7a; border-radius: 16px; }
+  #dialogFace { width: 56px; height: 56px; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg, #ff5a7a, #ffb347); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; flex: none; text-shadow: none; }
   #dialogName { font-size: 11px; letter-spacing: 2px; color: #ffd94a; font-weight: 800; }
   #dialogText { font-size: 15px; font-weight: 600; }
   #hintBox { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); font-size: 13px; color: rgba(255,255,255,.85); background: rgba(0,0,0,.4); padding: 5px 12px; border-radius: 6px; white-space: nowrap; }
@@ -63,8 +68,8 @@
   #crosshair::before, #crosshair::after { content: ''; position: absolute; background: #fff; box-shadow: 0 0 4px #000; }
   #crosshair::before { left: 10px; top: 0; width: 2px; height: 22px; }
   #crosshair::after { top: 10px; left: 0; height: 2px; width: 22px; }
-  .overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: linear-gradient(180deg, rgba(90,40,120,.30) 0%, rgba(255,120,60,.10) 55%, rgba(20,8,40,.60) 100%); color: #fff; z-index: 5; }
-  .card { text-align: center; max-width: 680px; padding: 30px 40px; background: rgba(30,8,40,.42); border: 1px solid rgba(255,217,74,.45); border-radius: 18px; box-shadow: 0 0 60px rgba(255,120,60,.35); }
+  .overlay { position: fixed; inset: 0; display: flex; align-items: flex-end; justify-content: center; background: linear-gradient(180deg, rgba(90,40,120,.12) 0%, rgba(255,120,60,.05) 55%, rgba(20,8,40,.45) 100%); color: #fff; z-index: 5; padding-bottom: 42px; }
+  .card { text-align: center; max-width: 620px; padding: 22px 30px; background: rgba(20,8,36,.34); border: 1px solid rgba(255,217,74,.45); border-radius: 18px; box-shadow: 0 0 60px rgba(255,120,60,.35); }
   .card h1 { margin: 0; font-size: 72px; letter-spacing: 6px; font-weight: 900; background: linear-gradient(180deg, #fff2c0 0%, #ffd94a 45%, #ff7a3d 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 18px rgba(255,120,60,.7)) drop-shadow(0 4px 0 rgba(90,20,10,.6)); }
   .card h2 { margin: 4px 0 0; font-size: 22px; letter-spacing: 10px; color: #7df9ff; font-weight: 700; }
   .card p { font-size: 16px; line-height: 1.5; color: #f2eaff; }
@@ -90,7 +95,7 @@
   <div id="weaponBox" class="panel"><span class="slot" id="slotFists">FISTS</span><span class="slot on" id="slotPistol">PISTOL &middot; <span id="slotAmmo">24</span></span></div>
   <div id="radioBar" class="panel"><span class="station">SHOREWAVE 98.5</span> &middot; <span class="song">Sunset Drive &mdash; The Palmettes</span></div>
   <div id="minimapWrap" class="panel"><canvas id="minimap" width="170" height="170"></canvas><div id="minimapLabel">VICE SHORES</div></div>
-  <div id="speedBox" class="panel"><div id="speedNum">0</div><small id="speedUnit">KM/H &middot; ON FOOT</small><div id="vehicleLine">ON FOOT</div></div>
+  <div id="speedBox" class="panel"><svg viewBox="0 0 128 128" aria-hidden="true"><circle class="track" cx="64" cy="64" r="58"/><circle id="speedRing" cx="64" cy="64" r="58"/></svg><div id="speedNum">0</div><small id="speedUnit">KM/H &middot; ON FOOT</small><div id="vehicleLine">ON FOOT</div></div>
   <div id="messages"></div>
   <div id="dialogBar" class="panel hidden"><div id="dialogFace">MK</div><div><div id="dialogName">MARA KADE</div><div id="dialogText"></div></div></div>
   <div id="hintBox">WASD drive &amp; walk &middot; E steal a car &middot; F punch &middot; Click to shoot &middot; Space handbrake &middot; P pause &middot; M mute</div>

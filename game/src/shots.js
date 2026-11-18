@@ -84,11 +84,14 @@ export function stageShot(name, game) {
     game.reset(true);
     // The chase runs east down the beachfront street toward the ocean and
     // the low sun, palms on both kerbs, the billboard and the ferris wheel
-    // ahead on the left, the beach at the end of the street.
+    // ahead on the left, the beach at the end of the street. Builder #9:
+    // seven seconds in, so the low shop row, the billboard and the wheel
+    // are all inside the frame instead of the chase ending at a tower wall
+    // — eight seconds drove too far east and pushed the wheel out of frame.
     placeInOwnCar(game, -10, -29, 0);
     // Drive clean first: the heat only lands once the chase frame is staged,
     // so the police have no time to ram Rico to pieces before the photo.
-    step(game, 6, () => lanePilot(game, -25.6, 'x')); // The right-hand lane.
+    step(game, 7, () => lanePilot(game, -25.6, 'x')); // The right-hand lane.
     game.startMission(2); // Three stars: the VSPD is on Rico.
     // One step so the three units actually spawn (they only appear inside
     // police.update), then park them ahead of the player for the chase frame.
@@ -109,8 +112,12 @@ export function stageShot(name, game) {
     game.reset(true);
     // The cruise runs east toward the beach: palms on both kerbs, the sun
     // low over the ocean at the end of the street, sand and water ahead.
-    placeInOwnCar(game, -40, 29, 0);
-    step(game, 9, () => lanePilot(game, 32.4, 'x')); // The right-hand lane.
+    // Builder #9: it starts further east, so the curved shoreline,
+    // umbrellas and surf are in the frame, not just the street. Take 2:
+    // six seconds instead of nine, so the car still ends on the street
+    // with the coast at its end instead of running out onto the sand.
+    placeInOwnCar(game, 20, 29, 0);
+    step(game, 6, () => lanePilot(game, 32.4, 'x')); // The right-hand lane.
     // A sideswipe or a police ram on the way in is real play, not the photo:
     // the driving frame shows the city and the traffic, not a dented Rico.
     game.player.health = 100;

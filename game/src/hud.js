@@ -42,6 +42,15 @@ export function createHud(document) {
   const dialogName = el('dialogName');
   const dialogText = el('dialogText');
   const status = el('status');
+  const respectNum = el('respectNum');
+  const respectBar = el('respectBar');
+  const respectPts = el('respectPts');
+  const condBar = el('condBar');
+  const condLine = el('condLine');
+  const gearNum = el('gearNum');
+  const feedback = el('feedback');
+  const feedbackBig = el('feedbackBig');
+  const feedbackSub = el('feedbackSub');
 
   let lastStars = -1;
   let lastCash = -1;
@@ -55,6 +64,9 @@ export function createHud(document) {
   let lastVehicle = '';
   let lastLocation = '';
   let lastStage = '';
+  let lastRespect = '';
+  let lastCondition = -1;
+  let feedbackTimer = 0;
 
   function setStars(stars) {
     if (stars === lastStars) return;
@@ -101,9 +113,11 @@ export function createHud(document) {
     stageText.textContent = `STAGE ${current}/${total}`;
   }
 
-  function setSpeed(kmh, inCar) {
+  function setSpeed(kmh, inCar, condition, gear) {
     const value = Math.round(kmh);
-    if (value === lastSpeed && speedUnit.textContent.includes(inCar ? 'DRIVING' : 'ON FOOT')) return;
+    const cond = condition === undefined ? lastCondition : Math.max(0, Math.min(100, Math.round(condition)));
+    const sameSpeed = value === lastSpeed && speedUnit.textContent.includes(inCar ? 'DRIVING' : 'ON FOOT');
+    if (sameSpeed && cond === lastCondition) return;
     lastSpeed = value;
     speedNum.textContent = String(value);
     speedUnit.textContent = inCar ? 'KM/H · DRIVING' : 'KM/H · ON FOOT';
@@ -113,6 +127,43 @@ export function createHud(document) {
       const frac = Math.max(0, Math.min(1, value / 160));
       speedRing.style.strokeDashoffset = String(364 * (1 - frac));
     }
+    // Condition + gear, Halcyon-style: the car's state under the dial.
+    if (cond !== lastCondition) {
+      lastCondition = cond;
+      condBar.style.width = `${cond}%`;
+    }
+    condLine.textContent = `CONDITION ${cond < 0 ? 100 : cond}% · G${gear || 1}`;
+    if (gear !== undefined) gearNum.textContent = String(gear || 1);
+  }
+
+  /** The respect bar under the minimap: level and points from story progress. */
+  function setRespect(level, points) {
+    const key = `${level}|${points}`;
+    if (key === lastRespect) return;
+    lastRespect = key;
+    respectNum.textContent = String(level);
+    respectPts.textContent = String(points);
+    respectBar.style.width = `${Math.max(0, Math.min(100, Math.round((points % 1300) / 13)))}%`;
+  }
+
+  /** Big drift / near-miss feedback in the middle of the road, Halcyon-style.
+   * `sticky` keeps it up for a screenshot stage; live play fades it after
+   * 1.6 seconds. */
+  function showFeedback(big, sub, sticky) {
+    feedbackBig.textContent = big || '';
+    feedbackSub.textContent = sub || '';
+    feedback.classList.remove('hidden');
+    if (feedbackTimer) window.clearTimeout(feedbackTimer);
+    feedbackTimer = 0;
+    if (!sticky) {
+      feedbackTimer = window.setTimeout(() => { feedback.classList.add('hidden'); }, 1600);
+    }
+  }
+
+  function hideFeedback() {
+    if (feedbackTimer) window.clearTimeout(feedbackTimer);
+    feedbackTimer = 0;
+    feedback.classList.add('hidden');
   }
 
   function setAmmo(ammo) {
@@ -225,7 +276,8 @@ export function createHud(document) {
     show() { hud.classList.remove('hidden'); clearMessages(); },
     hide() { hud.classList.add('hidden'); },
     setStars, setCash, setHealth, setObjective, setStage, setSpeed, setAmmo,
-    setPolice, setDialog, setClock, setVehicle, setLocation,
+    setPolice, setDialog, setClock, setVehicle, setLocation, setRespect,
+    showFeedback, hideFeedback,
     message, announce, clearMessages,
     setCrosshair(on) { crosshair.style.display = on ? 'block' : 'none'; },
     setHint(text) { hintBox.textContent = text; },

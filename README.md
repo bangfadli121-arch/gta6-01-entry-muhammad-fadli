@@ -34,6 +34,12 @@ pink-orange sky, a low sun, pastel towers, palms and a ferris wheel on the sand.
   minimap, rounded colourful panels and a round speedometer dial.
 - **Start screen and save** — title screen over a living city, pause (P),
   busted/wasted flow, progress auto-saves to localStorage (C continues).
+- **Photorealistic textures** — the sky, building facades, billboards,
+  sand and ocean wear Stable Diffusion renders made on a Tesla T4 GPU
+  (`game/assets/`, manifest included); the generated billboard lettering
+  is covered by the game's own sharp neon text, and every texture falls
+  back to the original flat colours if it fails to load, so the game can
+  never go blank.
 - **Sound** — everything synthesized with WebAudio: engine hum, siren, shots,
   punches, crash and skid noise, pickup blips and a bassline loop. No audio
   files, no network requests. M mutes.

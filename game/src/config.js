@@ -7,20 +7,35 @@ export const THEME = 'sunset';
 
 export const SAVE_KEY = 'vice-shores-save-v1';
 
+// Builder #11 (18 Nov): the island rebuild — Vice Shores is now a compact
+// ROUND island, not a grid that sprawls to a square edge. Six streets on a
+// 48-unit pitch (a tight downtown, not a loose grid), a curved ring
+// boulevard hugging the coast, sand and ocean all the way round, and the
+// world bound pulled in to the beach so nobody drives out onto the water.
 // The city is a grid of square blocks separated by roads. Streets run at these
 // coordinates on both axes; the pitch is the distance between street centres.
 export const CITY = {
   blocks: 6,
-  pitch: 58,
+  pitch: 48,
   roadWidth: 14,
-  blockSize: 44,
+  blockSize: 34,
   // Street centre lines, west to east / north to south.
-  streets: [-145, -87, -29, 29, 87, 145],
-  // The beach and the ocean sit east of the last street.
+  streets: [-120, -72, -24, 24, 72, 120],
+  // The ring boulevard: a curved coastal road at this radius, drawn as a
+  // true circle in the city and on the minimap — the island's main drag.
+  ringRadius: 168,
+  ringWidth: 14,
+  // The beach ring (sand) and the island's edge (land disc radius).
+  beachInner: 176,
+  islandRadius: 196,
+  // The beach and the ocean sit east of the last street (kept for the
+  // east beach strip: the wheel, the billboards and the shop row).
   beachX: 168,
   waterX: 196,
-  // World bounds the player and traffic stay inside.
-  bound: 210,
+  // World bounds the player and traffic stay inside (the beach edge).
+  bound: 200,
+  // Casino Row: the neon district, one block north-east of downtown.
+  casino: { x: 96, z: -96 },
 };
 
 export const PALETTES = {
@@ -110,8 +125,8 @@ export const MISSIONS = [
     id: 1, title: 'THE PICKUP', giver: 'MARA KADE',
     intro: 'Mara needs a package from the docks. Steal a car if you have to — everyone does.',
     steps: [
-      { type: 'goto', label: 'Drive to the Docks', sub: 'Follow the yellow marker', x: -145, z: 145 },
-      { type: 'goto', label: 'Deliver to the Hideout', sub: 'Package secured — do not get caught', x: 29, z: -145 },
+      { type: 'goto', label: 'Drive to the Docks', sub: 'Follow the yellow marker', x: -108, z: 134 },
+      { type: 'goto', label: 'Deliver to the Hideout', sub: 'Package secured — do not get caught', x: 24, z: -145 },
     ],
     reward: 500,
   },
@@ -128,13 +143,13 @@ export const MISSIONS = [
     id: 3, title: 'LOSE THE HEAT', giver: 'DETECTIVE ORLO',
     intro: 'The VSPD is on you. Three stars and climbing. Reach the Hideout alive.',
     steps: [
-      { type: 'escape', label: 'Lose the cops — reach the Hideout', sub: 'Break line of sight, then run', x: 29, z: -145 },
+      { type: 'escape', label: 'Lose the cops — reach the Hideout', sub: 'Break line of sight, then run', x: 24, z: -145 },
     ],
     reward: 1200,
   },
 ];
 
-export const HIDEOUT = { x: 29, z: -145 };
-export const DOCKS = { x: -145, z: 145 };
+export const HIDEOUT = { x: 24, z: -148 };
+export const DOCKS = { x: -108, z: 134 };
 export const START_CASH = 250;
 export const STEP = 1 / 60;

@@ -144,7 +144,7 @@ export function createRenderer(canvas, theme, textures) {
       ? palette.sunDiscPositionTextured
       : palette.sunDiscPosition)
     : [palette.sunPosition[0] * 2.4, theme === 'sunset' ? 26 : 90, palette.sunPosition[2] * 2.4];
-  // Builder #14 — A REAL GLOW, NOT A PLATE (fadli: "knp masih ada
+  // Builder #14c — A REAL GLOW, NOT A PLATE (fadli: "knp masih ada
   // tempelan"): the old sun was two flat circles — a pale disc and a big
   // orange halo disc — and both showed a hard circular rim against the
   // sky, like a plate nailed up there. The sun is now a radial-gradient

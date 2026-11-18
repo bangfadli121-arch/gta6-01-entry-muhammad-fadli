@@ -28,8 +28,9 @@ pink-orange sky, a low sun, pastel towers, palms and a ferris wheel on the sand.
 - **HUD and minimap** — cash, health, ammo, speed, wanted stars, mission
   objective with a stage bar, a message feed, and a round minimap with the
   player, police, traffic and the mission marker — plus a VSPD response list
-  (unit, distance, status), a mission-giver dialog bar, a radio bar, weapon
-  slots, a day/clock line and the district name under the minimap.
+  (unit, distance, status), a mission-giver dialog bar with a drawn portrait,
+  a radio bar, weapon slots, a day/clock line and the district name under the
+  minimap.
 - **Start screen and save** — title screen over a living city, pause (P),
   busted/wasted flow, progress auto-saves to localStorage (C continues).
 - **Sound** — everything synthesized with WebAudio: engine hum, siren, shots,
@@ -47,15 +48,23 @@ posed by hand, so each frame is a moment of genuine play.
 ## Screenshots
 
 Four real renders of the game in a headless browser, all `?shot=…&seed=1`
-from `shots.json`: 1-cover (a three-star police chase), 2-driving (the city
-at golden hour), 3-onfoot (the courier fight), 4-start (the title screen).
+from `shots.json`: 1-cover (a three-star police chase east toward the beach
+and the low sun), 2-driving (the cruise east toward the beach, palms on both
+kerbs, sun over the ocean), 3-onfoot (the courier fight, facing the sunset),
+4-start (the title screen over the city, the beach and the ferris wheel).
 
 ## Look
 
-Golden hour over a beach city: a pink-orange gradient sky with a low sun and
-warm haze, pastel towers with varied lit windows, palms along the beachfront
-avenues, colourful umbrellas on the sand, a big neon billboard and a ferris
-wheel, saturated car paint, crosswalks and kerb-parked cars. An earlier
+Golden hour over a beach city: a four-band violet-pink-orange-gold sky with
+the sun low over the ocean at the end of the east streets, glaring through
+an additive halo, and long pink streak clouds, saturated towers with warm
+lit windows on all four faces, glowing street lamps, dark wet-looking
+asphalt with a yellow centre line and a sun streak, palms lining the
+beachfront avenue and the east streets, a bright sand beach with colourful
+umbrellas and towels, a big neon billboard that glows pink and spills light
+onto the promenade, and a ferris wheel, saturated car paint, crosswalks and
+kerb-parked cars. The glow is faked with additive sprites and one billboard
+point light, not a post-processing pass, so the frame stays fast. An earlier
 neon-night variant was dropped — a bright beach city reads far better at the
 judge's contact-sheet size.
 

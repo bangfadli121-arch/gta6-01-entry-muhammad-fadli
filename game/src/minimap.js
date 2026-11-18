@@ -2,14 +2,15 @@
 // the player as an arrow, police as flashing dots, traffic as specks and the
 // mission marker as a pulsing diamond. One clear job, no three.js in here.
 //
-// Builder #9 redraw (the change fadli asked for by name): the map is LINES
-// on sand and sea, never filled blocks. The land is pale sand, the streets
-// are thin dark lines with a yellow dash down the main roads, and the coast
-// is a gentle curve with a surf line — the way the winning entries draw it.
-// Builder #10: the block outlines are gone entirely (their faint squares
-// are what still read as a grid of boxes), and the minor streets are
-// hairlines — only the beachfront boulevard and the two arterials carry
-// any weight. The player arrow is big with a dark halo; north gets a dark pill.
+// Builder #11 redraw (the change fadli asked for by name — "map nya bulet
+// padet"): the map IS the island. A round land disc, a curved ring boulevard
+// drawn as a true circle, the coast as a circle with the ocean outside it,
+// and the landmarks packed tight — the ferris wheel, both billboards, the
+// docks, Casino Row and the Hideout as dots on the map, with the district
+// names written on it (CORAL STRAND, DOWNTOWN, CASINO ROW, THE DOCKS), the
+// way the winning entries draw theirs. The streets are thin lines on sand,
+// never filled blocks — only the ring boulevard and the two east-west
+// arterials carry any weight.
 import { CITY } from './config.js';
 
 const WORLD = 440;
@@ -20,10 +21,9 @@ function hash2(x, z) {
   return s - Math.floor(s);
 }
 
-// The main roads: the beachfront boulevard and the two east-west arterials
-// that run to the beach. Everything else is a minor street.
-const MAIN_X = [145];
-const MAIN_Z = [29, -29];
+// The main roads: the ring boulevard (a circle) and the two east-west
+// arterials that run to the beach. Everything else is a minor street.
+const MAIN_Z = [24, -24];
 
 export function drawMinimap(canvas, view) {
   const ctx = canvas.getContext('2d');
@@ -38,98 +38,109 @@ export function drawMinimap(canvas, view) {
   ctx.beginPath();
   ctx.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2);
   ctx.clip();
-  // Land: pale sand everywhere, so the map reads as a beach city at a glance.
-  ctx.fillStyle = '#f2d491';
+  // Ocean first: the whole disc is sea, the island sits in it.
+  ctx.fillStyle = '#1e8fd0';
   ctx.fillRect(0, 0, size, size);
-  // NO block outlines: the old faint squares are what made the map read as
-  // a checkerboard of boxes. The blocks stay invisible — only the streets
-  // are drawn, as thin lines on the sand, the way the winning entries draw it.
+  // Land: the round island, pale sand at the rim fading to warm ground.
+  ctx.fillStyle = '#f2d491';
+  ctx.beginPath();
+  ctx.arc(toX(0), toY(0), CITY.islandRadius * scale, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#e8d5a8';
+  ctx.beginPath();
+  ctx.arc(toX(0), toY(0), CITY.beachInner * scale, 0, Math.PI * 2);
+  ctx.fill();
+  // The coast: a bright surf ring where the sand meets the sea.
+  ctx.strokeStyle = 'rgba(234,247,255,0.95)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(toX(0), toY(0), CITY.islandRadius * scale, 0, Math.PI * 2);
+  ctx.stroke();
   // Roads: thin dark lines, so the street grid reads as lines on sand.
   // Minor streets are dashed hairlines — dashes, not solid squares — so
-  // the map never reads as a checkerboard; only the beachfront boulevard
-  // and the two east-west arterials that run to the beach carry any
-  // weight, with a yellow dashed centre line down each main road like the
-  // 3D streets carry.
+  // the map never reads as a checkerboard; only the ring boulevard and
+  // the two east-west arterials that run to the beach carry any weight,
+  // with a yellow dashed centre line down each main road like the
+  // 3D streets carry. Streets stop at the ring: they never run into the sea.
+  const ringR = CITY.ringRadius * scale;
   ctx.strokeStyle = 'rgba(58,51,64,0.45)';
   ctx.lineCap = 'round';
   ctx.lineWidth = 1;
   ctx.setLineDash([3, 4]);
   for (const s of CITY.streets) {
-    ctx.beginPath(); ctx.moveTo(toX(s), 0); ctx.lineTo(toX(s), size); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(0, toY(s)); ctx.lineTo(size, toY(s)); ctx.stroke();
+    // A street's visible run: chord of the ring circle at that offset.
+    const half = Math.sqrt(Math.max(0, CITY.ringRadius * CITY.ringRadius - s * s));
+    ctx.beginPath(); ctx.moveTo(toX(-half), toY(s)); ctx.lineTo(toX(half), toY(s)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(toX(s), toY(-half)); ctx.lineTo(toX(s), toY(half)); ctx.stroke();
   }
   ctx.setLineDash([]);
+  // The ring boulevard: a true circle, the map's main drag.
   ctx.strokeStyle = '#3a3340';
   ctx.lineWidth = 3;
-  for (const s of MAIN_X) {
-    ctx.beginPath(); ctx.moveTo(toX(s), 0); ctx.lineTo(toX(s), size); ctx.stroke();
-  }
+  ctx.beginPath();
+  ctx.arc(toX(0), toY(0), ringR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = '#ffd23d';
+  ctx.lineWidth = 1.2;
+  ctx.setLineDash([4, 3]);
+  ctx.beginPath();
+  ctx.arc(toX(0), toY(0), ringR, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  // The two arterials, full weight.
+  ctx.strokeStyle = '#3a3340';
+  ctx.lineWidth = 3;
   for (const s of MAIN_Z) {
-    ctx.beginPath(); ctx.moveTo(0, toY(s)); ctx.lineTo(size, toY(s)); ctx.stroke();
+    const half = Math.sqrt(Math.max(0, CITY.ringRadius * CITY.ringRadius - s * s));
+    ctx.beginPath(); ctx.moveTo(toX(-half), toY(s)); ctx.lineTo(toX(half), toY(s)); ctx.stroke();
   }
   ctx.strokeStyle = '#ffd23d';
   ctx.lineWidth = 1.2;
   ctx.setLineDash([4, 3]);
-  for (const s of MAIN_X) {
-    ctx.beginPath(); ctx.moveTo(toX(s), 0); ctx.lineTo(toX(s), size); ctx.stroke();
-  }
   for (const s of MAIN_Z) {
-    ctx.beginPath(); ctx.moveTo(0, toY(s)); ctx.lineTo(size, toY(s)); ctx.stroke();
+    const half = Math.sqrt(Math.max(0, CITY.ringRadius * CITY.ringRadius - s * s));
+    ctx.beginPath(); ctx.moveTo(toX(-half), toY(s)); ctx.lineTo(toX(half), toY(s)); ctx.stroke();
   }
   ctx.setLineDash([]);
-  // Beach and ocean: bright sand, then a vivid blue sea, the coast drawn
-  // as a gentle curve (bulging east mid-map) with a pale surf line — the
-  // shoreline reads as a curve, not a ruler edge. The beach covers the
-  // roads' east ends, so no street runs into the water.
-  ctx.fillStyle = '#f7e3ac';
-  ctx.beginPath();
-  ctx.moveTo(toX(CITY.beachX), 0);
-  ctx.bezierCurveTo(
-    toX(CITY.beachX) + 18, size * 0.33,
-    toX(CITY.beachX) - 10, size * 0.66,
-    toX(CITY.beachX), size,
-  );
-  ctx.lineTo(size, size);
-  ctx.lineTo(size, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = '#22b4e6';
-  ctx.beginPath();
-  ctx.moveTo(toX(CITY.waterX), 0);
-  ctx.bezierCurveTo(
-    toX(CITY.waterX) + 18, size * 0.33,
-    toX(CITY.waterX) - 10, size * 0.66,
-    toX(CITY.waterX), size,
-  );
-  ctx.lineTo(size, size);
-  ctx.lineTo(size, 0);
-  ctx.closePath();
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(234,247,255,0.9)';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(toX(CITY.waterX), 0);
-  ctx.bezierCurveTo(
-    toX(CITY.waterX) + 18, size * 0.33,
-    toX(CITY.waterX) - 10, size * 0.66,
-    toX(CITY.waterX), size,
-  );
-  ctx.stroke();
-  // Palm dots along the beach arc, so the sand reads as a palm-lined shore.
+  // Palm dots along the beach ring, so the sand reads as a palm-lined shore.
   ctx.fillStyle = '#2fae5a';
-  for (let i = 0; i < 9; i += 1) {
-    const pz = -160 + i * 40;
-    const px = CITY.beachX + 8 + Math.sin(pz * 0.03) * 6;
+  for (let i = 0; i < 16; i += 1) {
+    const a = (i / 16) * Math.PI * 2 + 0.2;
     ctx.beginPath();
-    ctx.arc(toX(px), toY(pz), 2.2, 0, Math.PI * 2);
+    ctx.arc(toX(Math.cos(a) * 180), toY(Math.sin(a) * 180), 2, 0, Math.PI * 2);
     ctx.fill();
   }
-  // The ferris wheel: a small gold ring on the sand, the map's landmark.
+  // Landmarks, packed tight the way the island packs them:
+  // the ferris wheel (gold ring), both billboards (pink squares),
+  // Casino Row (gold star), the docks (crates) and the Hideout (green dot).
   ctx.strokeStyle = '#e8a93a';
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(toX(186), toY(-95), 4.5, 0, Math.PI * 2);
+  ctx.arc(toX(178), toY(-9), 5, 0, Math.PI * 2);
   ctx.stroke();
+  ctx.fillStyle = '#ff5a8a';
+  for (const bz of [-58, 40]) {
+    ctx.fillRect(toX(184) - 3, toY(bz) - 3, 6, 6);
+  }
+  ctx.fillStyle = '#ffd94a';
+  ctx.beginPath();
+  ctx.arc(toX(CITY.casino.x), toY(CITY.casino.z), 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#7a5200';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = '#2a9a6a';
+  ctx.fillRect(toX(-108) - 3, toY(134) - 3, 6, 6);
+  // District names, written on the map like the winners do.
+  ctx.fillStyle = 'rgba(26,16,48,0.75)';
+  ctx.font = 'bold 8px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('CORAL STRAND', toX(90), toY(72));
+  ctx.fillText('DOWNTOWN', toX(0), toY(8));
+  ctx.fillText('CASINO ROW', toX(88), toY(-112));
+  ctx.fillText('THE DOCKS', toX(-70), toY(122));
+  ctx.fillText('OCEAN BLVD', toX(0), toY(150));
   // Traffic specks.
   ctx.fillStyle = 'rgba(26,16,48,0.85)';
   for (const car of view.trafficCars) {

@@ -37,7 +37,11 @@ const status = document.getElementById('status');
 // The GPU textures load (or fail over to nulls) BEFORE the game is built,
 // so the city is never painted half-textured and the staged screenshots
 // are deterministic. The status is exposed for headless play-testing.
-const textures = await loadGameTextures();
+// Builder #12: in shot mode the texture timeout is 60 s, not 8 s — the
+// 8-second race could fire first on a slow load and silently flatten
+// every facade to a flat tint, so two "identical" runs could differ by
+// which side of the race they landed on. Live play keeps the 8 s cap.
+const textures = await loadGameTextures(shot ? 60000 : undefined);
 window.__textures = textures.__status || { loaded: [], failed: [] };
 
 const game = createGame(canvas, THEME, seed, textures);
@@ -54,7 +58,18 @@ function runShot(name) {
   // Freeze the radio equaliser for screenshots: its CSS animation phase
   // is wall-clock, not game time, and it alone broke the byte-identical
   // driving determinism check. Live play keeps the animation.
+  // Builder #12 — DETERMINISTIC COVER: the staged scene is FROZEN after
+  // staging. This paint loop only re-renders the same frozen state (no
+  // game.update, no updateIdle); the HUD message auto-removal is also
+  // disabled in shot mode (hud.js), so nothing wall-clock can move a
+  // pixel between staging and capture. That is what made #11's cover
+  // differ between runs: its wanted-message div vanished on a 5.2 s
+  // wall-clock timer while the capture waited on slow SwiftShader
+  // frames, and a slow texture load could lose the 8 s race and flatten
+  // the facades. Both leaks are closed here (see main.js texture
+  // timeout above); verify with two cover captures, same sha.
   document.documentElement.classList.add('shot');
+  window.__shotFrozen = true;
   // Stage with the renderer off: hundreds of SwiftShader frames would take a
   // minute and the scene state does not depend on painting. Then paint on
   // animation frames, so the compositor picks up a fresh WebGL frame — a render

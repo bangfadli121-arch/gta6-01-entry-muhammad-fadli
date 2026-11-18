@@ -263,7 +263,13 @@ export function createHud(document) {
     div.textContent = text;
     messagesEl.appendChild(div);
     while (messagesEl.children.length > 3) messagesEl.removeChild(messagesEl.firstChild);
-    window.setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 5200);
+    // Builder #12: in shot mode the message stays — its 5.2 s wall-clock
+    // removal could fire (or not) between staging and capture while slow
+    // SwiftShader frames are still painting, which is one of the leaks
+    // that made #11's cover differ between runs. Live play still fades.
+    if (!document.documentElement.classList.contains('shot')) {
+      window.setTimeout(() => { if (div.parentNode) div.parentNode.removeChild(div); }, 5200);
+    }
   }
 
   function announce(text) {

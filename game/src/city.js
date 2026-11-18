@@ -425,6 +425,14 @@ export function buildCity(scene, theme, seed, textures) {
   // skyline ends in a curve at the ring boulevard instead of a square edge.
   // Edge blocks build smaller, so no tower corner ever pokes onto the ring.
   const windowPositions = [];
+  // Builder #12 — instanced 3D relief, collected during the tower loop
+  // and drawn as a handful of instanced meshes afterwards: balcony slabs
+  // + rails (every other floor, all four faces), corner pilasters on box
+  // towers. One draw call each, so the facades gain real depth without
+  // hundreds of extra meshes.
+  const balcSlabs = [];
+  const balcRails = [];
+  const pilasters = [];
   let neonCount = 0;
   for (const cx of BLOCK_CENTRES) {
     for (const cz of BLOCK_CENTRES) {
@@ -447,13 +455,36 @@ export function buildCity(scene, theme, seed, textures) {
         // lane clears every tower corner by a unit.
         const w = Math.min(isShopRow ? range(rng, 12, 16) : range(rng, 14, edgeBlock ? 16 : 20), 14);
         const d = Math.min(isShopRow ? range(rng, 12, 16) : range(rng, 14, edgeBlock ? 16 : 20), 14);
-        const h = isCasino
+        const h0 = isCasino
           ? range(rng, 30, 40)
           : isShopRow
             ? range(rng, 5, 11)
             : range(rng, 7, 26) * (1.35 - distCentre * 0.7);
         const bx = cx + ox;
         const bz = cz + oz;
+        // Builder #12 — COVER SIGHTLINE (fadli: wheel + billboard wajib
+        // kelihatan di cover). The chase camera drives east down the z=-24
+        // street toward the wheel at (178,-9) and the boards at x=184.
+        // A tall tower in the slot just south of that street (bz -16..-4,
+        // bx 40..175) stands between the camera and the wheel — the
+        // (133,-11) tower is what hid the wheel at the 8-second drive —
+        // so it is capped low and can never block the landmark again.
+        // Drums on the street's north side (bz -40..-28) are forced to
+        // boxes and capped, so no blank drum wall fills the left of the
+        // cover frame the way the big yellow drum did in #11. Collision
+        // footprints are untouched: only heights change.
+        const inCoverCorridor = bx >= 40 && bx <= 175 && bz >= -16 && bz <= -4;
+        const byCoverStreetNorth = bx >= 40 && bx <= 175 && bz >= -40 && bz <= -28;
+        // Builder #12, third look: the corridor tower nearest the 8-second
+        // camera — (85,-11), only 20 units ahead — is short (8) but so
+        // close it spans 8–48° of the frame and hides the whole FLAMINGO
+        // board behind it. Slots right beside the camera (bx 70–115) are
+        // capped at 5, so they read as a low corner shop and the board
+        // shows over its roof; the rest of the corridor stays at 8.
+        const nearCoverCamera = bx >= 70 && bx <= 115 && bz >= -16 && bz <= -4;
+        const h = inCoverCorridor
+          ? Math.min(h0, nearCoverCamera ? 5 : 8)
+          : byCoverStreetNorth ? Math.min(h0, 18) : h0;
         const mat = isCasino
           ? tintMats[Math.floor(hash2(bx + 91, bz + 7) * tintMats.length) % tintMats.length]
           : isShopRow
@@ -462,27 +493,56 @@ export function buildCity(scene, theme, seed, textures) {
         // Builder #11: "ga terlalu kotak2" — some tall towers are ROUNDED,
         // faceted drums instead of boxes, so the skyline has curves in it.
         // A drum keeps the same collision box as the box it replaces.
-        const isDrum = !isShopRow && !isCasino && h > 15 && hash2(bx + 77, bz + 31) > 0.6;
+        // Builder #12: never a drum beside the cover street — drums there
+        // read as blank walls from the chase camera (the #11 yellow drum).
+        const isDrum = !isShopRow && !isCasino && h > 15 && hash2(bx + 77, bz + 31) > 0.6
+          && !byCoverStreetNorth;
         const facade = facadeMats.length && !isDrum
           ? facadeMats[Math.floor(hash2(bx + 51, bz + 23) * facadeMats.length) % facadeMats.length]
           : null;
+        // Builder #12 — REAL 3D, NOT PASTED-ON (fadli: "gedung cuma
+        // tempelan"). A tall box tower is TWO tiers, not one slab: a full
+        // base up to 62% of the height, then a smaller upper tier set back
+        // 1.3 on every side with a cornice slab between them, so the
+        // silhouette steps in real geometry and the facade reads as a
+        // building from the street, not a poster on a box.
+        const isTallBox = !isDrum && !isShopRow && h > 14;
+        const h1 = isTallBox ? h * 0.62 : h;
+        const w2 = isTallBox ? w - 2.6 : w;
+        const d2 = isTallBox ? d - 2.6 : d;
         const tower = isDrum
-          ? new THREE.Mesh(new THREE.CylinderGeometry(w * 0.48, w * 0.54, h, 12), mat)
+          ? new THREE.Mesh(new THREE.CylinderGeometry(w * 0.48, w * 0.54, h, 16), mat)
           : new THREE.Mesh(
-            new THREE.BoxGeometry(w, h, d),
+            new THREE.BoxGeometry(w, h1, d),
             facade ? [facade, facade, mat, mat, facade, facade] : mat,
           );
-        tower.position.set(bx, h / 2, bz);
+        tower.position.set(bx, h1 / 2, bz);
         group.add(tower);
+        if (isTallBox) {
+          const upper = new THREE.Mesh(new THREE.BoxGeometry(w2, h - h1, d2), mat);
+          upper.position.set(bx, h1 + (h - h1) / 2, bz);
+          group.add(upper);
+          const cornice = new THREE.Mesh(
+            new THREE.BoxGeometry(w + 0.5, 0.5, d + 0.5),
+            accentMats[Math.floor(hash2(bx + 29, bz + 3) * accentMats.length) % accentMats.length],
+          );
+          cornice.position.set(bx, h1 + 0.25, bz);
+          group.add(cornice);
+        }
+        // Builder #12: on a set-back tower the roof slab and parapet cap
+        // follow the UPPER tier's smaller footprint, not the base — a
+        // full-width slab would hang in the air past the upper walls.
+        const roofW = isTallBox ? w2 : w;
+        const roofD = isTallBox ? d2 : d;
         const roof = isDrum
           ? new THREE.Mesh(
-            new THREE.CylinderGeometry(w * 0.54 + 0.3, w * 0.54 + 0.3, 0.5, 12),
+            new THREE.CylinderGeometry(w * 0.54 + 0.3, w * 0.54 + 0.3, 0.5, 16),
             isShopRow
               ? shopRoofMats[Math.floor(hash2(bx + 9, bz + 4) * shopRoofMats.length) % shopRoofMats.length]
               : roofMat,
           )
           : new THREE.Mesh(
-            new THREE.BoxGeometry(w + 0.6, 0.5, d + 0.6),
+            new THREE.BoxGeometry(roofW + 0.6, 0.5, roofD + 0.6),
             isShopRow
               ? shopRoofMats[Math.floor(hash2(bx + 9, bz + 4) * shopRoofMats.length) % shopRoofMats.length]
               : roofMat,
@@ -494,8 +554,8 @@ export function buildCity(scene, theme, seed, textures) {
         // boxes: the accent colour is keyed off the tower's position.
         const accent = accentMats[Math.floor(hash2(bx, bz) * accentMats.length) % accentMats.length];
         const cap = isDrum
-          ? new THREE.Mesh(new THREE.CylinderGeometry(w * 0.54 + 0.35, w * 0.54 + 0.35, 0.7, 12), accent)
-          : new THREE.Mesh(new THREE.BoxGeometry(w + 0.7, 0.7, d + 0.7), accent);
+          ? new THREE.Mesh(new THREE.CylinderGeometry(w * 0.54 + 0.35, w * 0.54 + 0.35, 0.7, 16), accent)
+          : new THREE.Mesh(new THREE.BoxGeometry(roofW + 0.7, 0.7, roofD + 0.7), accent);
         cap.position.set(bx, h + 0.7, bz);
         group.add(cap);
         // A stepped crown on tall towers: a smaller box set back on the
@@ -533,16 +593,39 @@ export function buildCity(scene, theme, seed, textures) {
             group.add(crownCap);
           }
         }
-        // Balconies on the street-facing side of tall towers: thin slabs
-        // with a rail edge, so the upper floors have depth.
-        if (!isShopRow && h > 14) {
-          const balcMat = new THREE.MeshStandardMaterial({ color: 0xf0e2c2, roughness: 0.9 });
-          for (let fl = 0; fl < 2; fl += 1) {
-            const by = 6 + fl * 6 + hash2(bx, bz + fl) * 2;
-            if (by > h - 3) continue;
-            const slab = new THREE.Mesh(new THREE.BoxGeometry(w * 0.5, 0.35, 1.4), balcMat);
-            slab.position.set(bx, by, bz + d / 2 + 0.7);
-            group.add(slab);
+        // Builder #12 — BALCONIES ON EVERY FLOOR, EVERY FACE (instanced):
+        // a slab + rail on each face every 6 units up, so the facade has
+        // real depth from any street, not one flat poster wall. Floors
+        // above the setback line use the upper tier's smaller footprint,
+        // so no balcony floats in the air. Corner pilasters run up the
+        // base tier in the same pass, for the art-deco vertical rhythm
+        // Halcyon's towers carry.
+        if (!isDrum && !isShopRow && h > 12) {
+          for (let by = 5.5; by < h - 2.5; by += 6) {
+            const fw = by < h1 ? w : w2;
+            const fd = by < h1 ? d : d2;
+            const faceDefs = [
+              { len: fw, rot: 0, px: 0, pz: fd / 2 + 0.65, ox: 0, oz: 1 },
+              { len: fw, rot: Math.PI, px: 0, pz: -fd / 2 - 0.65, ox: 0, oz: -1 },
+              { len: fd, rot: Math.PI / 2, px: fw / 2 + 0.65, pz: 0, ox: 1, oz: 0 },
+              { len: fd, rot: -Math.PI / 2, px: -fw / 2 - 0.65, pz: 0, ox: -1, oz: 0 },
+            ];
+            for (const fd2 of faceDefs) {
+              const nBal = fd2.len >= 11 ? 2 : 1;
+              const offs = nBal === 2 ? [-fd2.len / 4, fd2.len / 4] : [0];
+              for (const off of offs) {
+                if (hash2(bx + off * 3, bz + by * 2) < 0.12) continue;
+                const cx2 = bx + fd2.px + (fd2.rot === 0 || fd2.rot === Math.PI ? off : 0);
+                const cz2 = bz + fd2.pz + (fd2.rot === 0 || fd2.rot === Math.PI ? 0 : off);
+                balcSlabs.push([cx2, by, cz2, fd2.rot]);
+                balcRails.push([cx2 + fd2.ox * 1.2, by + 0.6, cz2 + fd2.oz * 1.2, fd2.rot]);
+              }
+            }
+          }
+          for (const sx of [-1, 1]) {
+            for (const sz of [-1, 1]) {
+              pilasters.push([bx + sx * (w / 2 - 0.15), bz + sz * (d / 2 - 0.15), h1]);
+            }
           }
         }
         // A rooftop AC box on most towers, tucked in one corner.
@@ -553,6 +636,85 @@ export function buildCity(scene, theme, seed, textures) {
           );
           ac.position.set(bx - w / 4, h + 1.7, bz - d / 4);
           group.add(ac);
+        }
+        // Builder #12 — ROOFTOP LIFE: a water tank on half the tall
+        // towers and a thin antenna mast with a red tip on others, so the
+        // roofline is cluttered and real instead of a flat slab. The tank
+        // sits inside the upper tier's footprint (or the drum's top
+        // radius), never floating past the roof edge.
+        if (!isShopRow && h > 14) {
+          const roofHalf = isDrum ? w * 0.3 : Math.min(w2, d2) / 2 - 1.8;
+          if (hash2(bx + 5, bz + 9) > 0.45) {
+            const tank = new THREE.Mesh(
+              new THREE.CylinderGeometry(1.5, 1.5, 2.2, 10),
+              new THREE.MeshStandardMaterial({ color: 0x6a5a4a, roughness: 0.9 }),
+            );
+            tank.position.set(bx + roofHalf * 0.5, h + 1.1, bz - roofHalf * 0.5);
+            group.add(tank);
+            const tankCap = new THREE.Mesh(
+              new THREE.ConeGeometry(1.6, 1.0, 10),
+              new THREE.MeshStandardMaterial({ color: 0x4a3a30, roughness: 0.9 }),
+            );
+            tankCap.position.set(bx + roofHalf * 0.5, h + 2.7, bz - roofHalf * 0.5);
+            group.add(tankCap);
+          }
+          if (hash2(bx + 13, bz + 21) > 0.5) {
+            const mast = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.12, 0.16, 5, 6),
+              new THREE.MeshStandardMaterial({ color: 0x3a3a44, roughness: 0.6, metalness: 0.6 }),
+            );
+            mast.position.set(bx - roofHalf * 0.5, h + 2.5, bz + roofHalf * 0.5);
+            group.add(mast);
+            const tip = new THREE.Mesh(
+              new THREE.SphereGeometry(0.3, 8, 6),
+              new THREE.MeshBasicMaterial({ color: 0xff2a3a, toneMapped: false }),
+            );
+            tip.position.set(bx - roofHalf * 0.5, h + 5.1, bz + roofHalf * 0.5);
+            group.add(tip);
+          }
+        }
+        // Builder #12 — DRUM PODIUM + RING BALCONIES: a drum rises out of
+        // a wider podium base, and two flat ring balconies (annulus + rail
+        // torus) wrap it part-way up, so the round towers have horizontal
+        // rhythm and depth instead of one smooth tube.
+        if (isDrum) {
+          // Builder #12: the podium wears the tower's own tint, not a
+          // random one — a purple base under an orange drum read as a
+          // clash, not a building.
+          const podium = new THREE.Mesh(
+            new THREE.CylinderGeometry(w * 0.58, w * 0.62, 3.2, 16),
+            mat,
+          );
+          podium.position.set(bx, 1.6, bz);
+          group.add(podium);
+          const ringMat = new THREE.MeshStandardMaterial({ color: 0xf0e2c2, roughness: 0.9 });
+          const railMat = new THREE.MeshStandardMaterial({ color: 0x8a7a5a, roughness: 0.8 });
+          for (const frac of [0.38, 0.72]) {
+            const ry = h * frac;
+            const rr = w * 0.54 - w * 0.06 * frac;
+            // Builder #12: a SOLID plate, not a flat ring — the ring
+            // geometry is single-sided and invisible from below, so from
+            // the street the balcony read as a thin wire around the drum.
+            const ring = new THREE.Mesh(new THREE.CylinderGeometry(rr + 1.1, rr + 1.1, 0.35, 16), ringMat);
+            ring.position.set(bx, ry, bz);
+            group.add(ring);
+            const rail = new THREE.Mesh(new THREE.TorusGeometry(rr + 1.05, 0.12, 6, 16), railMat);
+            rail.rotation.x = Math.PI / 2;
+            rail.position.set(bx, ry + 0.85, bz);
+            group.add(rail);
+          }
+        }
+        // Builder #12 — SIGN BAND over the ground floor of low buildings:
+        // a lit horizontal band above the shopfront, so the street level
+        // carries signage, not a blank wall. Shops get it always; low
+        // towers get it often.
+        if ((isShopRow || (h < 16 && hash2(bx + 23, bz + 31) > 0.4)) && h > 6) {
+          const band = new THREE.Mesh(
+            new THREE.BoxGeometry(w * 0.7, 1.0, 0.25),
+            accentMats[Math.floor(hash2(bx + 37, bz + 11) * accentMats.length) % accentMats.length],
+          );
+          band.position.set(bx, 4.6, bz + d / 2 + 0.12);
+          group.add(band);
         }
         // A coloured shopfront awning on the street-facing side of low
         // buildings, so the ground floor has something to look at. Shops
@@ -580,43 +742,69 @@ export function buildCity(scene, theme, seed, textures) {
         }
         // Lit windows on all four faces, so the towers read busy from any
         // street the camera drives down, not just from the south and west.
-        // The rotation each face needs is stored with the window. Windows
-        // are smaller now (1.5 x 1.2) and shops skip the upper-floor grid
-        // for their glass front, so facades read as varied lights, not a
-        // grid of big squares.
-        // Builder #11: drum towers wear no window grid — their curved wall
-        // is not where the box-face window positions land, so the grid
-        // would float in the air beside them. Drums read through their
-        // tint, neon strip and drum crown instead.
-        const floors = isDrum ? 0 : (isShopRow ? 1 : Math.max(1, Math.floor(h / 3.2)));
-        const cols = Math.max(1, Math.floor(w / 4));
-        const colsZ = Math.max(1, Math.floor(d / 4));
-        const faces = [
-          { axis: 'x', at: bz + d / 2 + 0.06, rot: 0 },
-          { axis: 'z', at: bx - w / 2 - 0.06, rot: -Math.PI / 2 },
-          { axis: 'x', at: bz - d / 2 - 0.06, rot: Math.PI },
-          { axis: 'z', at: bx + w / 2 + 0.06, rot: Math.PI / 2 },
-        ];
-        for (const face of faces) {
-          const run = face.axis === 'x' ? cols : colsZ;
-          for (let f = 0; f < floors; f += 1) {
-            for (let c = 0; c < run; c += 1) {
-              if (rng() > palette.windowLit) continue;
-              const wy = 2.2 + f * 3.2;
-              if (face.axis === 'x') {
-                const wx = bx - w / 2 + 2.2 + c * 4;
-                windowPositions.push([wx, wy, face.at, face.rot]);
-              } else {
-                const wz = bz - d / 2 + 2.2 + c * 4;
-                windowPositions.push([face.at, wy, wz, face.rot]);
+        // Builder #12: windows follow the TWO tiers — the base tier wears
+        // the full grid, the set-back upper tier wears its own smaller
+        // grid, so the lit windows sit on real walls at both levels.
+        // Drum towers wear their windows WRAPPED around the curved wall
+        // (radius follows the drum's taper), so the drum reads lit and
+        // alive instead of a blank coloured tube.
+        const addBoxWindows = (fw, fd, yBase, yTop, maxFloors) => {
+          const fl = maxFloors !== undefined ? maxFloors
+            : Math.max(1, Math.floor((yTop - yBase) / 3.2));
+          const cc = Math.max(1, Math.floor(fw / 4));
+          const ccZ = Math.max(1, Math.floor(fd / 4));
+          const faceDefs = [
+            { axis: 'x', at: bz + fd / 2 + 0.06, rot: 0 },
+            { axis: 'z', at: bx - fw / 2 - 0.06, rot: -Math.PI / 2 },
+            { axis: 'x', at: bz - fd / 2 - 0.06, rot: Math.PI },
+            { axis: 'z', at: bx + fw / 2 + 0.06, rot: Math.PI / 2 },
+          ];
+          for (const face of faceDefs) {
+            const run = face.axis === 'x' ? cc : ccZ;
+            for (let f = 0; f < fl; f += 1) {
+              for (let c = 0; c < run; c += 1) {
+                if (rng() > palette.windowLit) continue;
+                const wy = yBase + 2.2 + f * 3.2;
+                if (wy > yTop - 1) continue;
+                if (face.axis === 'x') {
+                  const wx = bx - fw / 2 + 2.2 + c * 4;
+                  windowPositions.push([wx, wy, face.at, face.rot]);
+                } else {
+                  const wz = bz - fd / 2 + 2.2 + c * 4;
+                  windowPositions.push([face.at, wy, wz, face.rot]);
+                }
               }
             }
           }
+        };
+        if (isDrum) {
+          const drumFloors = Math.max(1, Math.floor(h / 3.2));
+          for (let f = 0; f < drumFloors; f += 1) {
+            const wy = 2.2 + f * 3.2;
+            if (wy > h - 1.5) continue;
+            // The drum tapers: radius at this height, window just proud.
+            // Builder #12: drum windows are BIG (1.8x) and dense — the
+            // #11 drums read as blank tubes from the street because their
+            // windows were the same small stamp as the box towers'.
+            const rr = w * 0.54 - w * 0.06 * (wy / h) + 0.08;
+            for (let aIdx = 0; aIdx < 10; aIdx += 1) {
+              if (hash2(bx + aIdx * 13, bz + f * 7) > palette.windowLit * 2.1) continue;
+              const a = (aIdx / 10) * Math.PI * 2;
+              windowPositions.push([bx + Math.sin(a) * rr, wy, bz + Math.cos(a) * rr, a, 1.8]);
+            }
+          }
+        } else if (isShopRow) {
+          addBoxWindows(w, d, 0, h, 1);
+        } else if (isTallBox) {
+          addBoxWindows(w, d, 0, h1);
+          addBoxWindows(w2, d2, h1, h);
+        } else {
+          addBoxWindows(w, d, 0, h);
         }
         // A neon sign on some towers, facing the street — and a thin
         // vertical neon strip down one corner of taller towers, so the
         // facades carry light, not just paint.
-        if (neonCount < 12 && chance(rng, isShopRow ? 0.55 : 0.35)) {
+        if (neonCount < 20 && chance(rng, isShopRow ? 0.55 : 0.35)) {
           const sign = new THREE.Mesh(
             new THREE.BoxGeometry(0.5, range(rng, 2, 5), range(rng, 4, 9)),
             neonMats[neonCount % neonMats.length],
@@ -663,7 +851,7 @@ export function buildCity(scene, theme, seed, textures) {
           strip2.position.set(bx - w / 2 - 0.1, h * 0.5, bz - d / 2 - 0.1);
           group.add(strip2);
         }
-        if (!isShopRow && h > 15 && hash2(bx + 31, bz + 13) > 0.55) {
+        if (!isShopRow && h > 15 && hash2(bx + 31, bz + 13) > 0.42) {
           const strip = new THREE.Mesh(
             new THREE.BoxGeometry(0.3, h * 0.7, 0.3),
             neonMats[Math.floor(hash2(bx + 7, bz + 19) * neonMats.length) % neonMats.length],
@@ -675,6 +863,47 @@ export function buildCity(scene, theme, seed, textures) {
     }
   }
 
+  // Builder #12 — the collected balcony slabs + rails and corner
+  // pilasters, each as one instanced draw. Slabs are cream, rails a
+  // darker bronze, pilasters the same cream as the slabs, so the
+  // relief reads in the golden-hour light.
+  const balcSlabGeo = new THREE.BoxGeometry(3.2, 0.3, 1.3);
+  const balcSlabMat = new THREE.MeshStandardMaterial({ color: 0xf0e2c2, roughness: 0.9 });
+  const balcSlabsMesh = new THREE.InstancedMesh(balcSlabGeo, balcSlabMat, Math.max(1, balcSlabs.length));
+  balcSlabs.forEach(([x, y, z, rotY], i) => {
+    dummy.position.set(x, y, z);
+    dummy.rotation.set(0, rotY, 0);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    balcSlabsMesh.setMatrixAt(i, dummy.matrix);
+  });
+  balcSlabsMesh.count = balcSlabs.length;
+  group.add(balcSlabsMesh);
+  const balcRailGeo = new THREE.BoxGeometry(3.2, 0.9, 0.12);
+  const balcRailMat = new THREE.MeshStandardMaterial({ color: 0x8a7a5a, roughness: 0.8 });
+  const balcRailsMesh = new THREE.InstancedMesh(balcRailGeo, balcRailMat, Math.max(1, balcRails.length));
+  balcRails.forEach(([x, y, z, rotY], i) => {
+    dummy.position.set(x, y, z);
+    dummy.rotation.set(0, rotY, 0);
+    dummy.scale.set(1, 1, 1);
+    dummy.updateMatrix();
+    balcRailsMesh.setMatrixAt(i, dummy.matrix);
+  });
+  balcRailsMesh.count = balcRails.length;
+  group.add(balcRailsMesh);
+  const pilGeo = new THREE.BoxGeometry(0.55, 1, 0.55);
+  const pilMat = new THREE.MeshStandardMaterial({ color: 0xf0e2c2, roughness: 0.9 });
+  const pilMesh = new THREE.InstancedMesh(pilGeo, pilMat, Math.max(1, pilasters.length));
+  pilasters.forEach(([x, z, ph], i) => {
+    dummy.position.set(x, ph / 2, z);
+    dummy.rotation.set(0, 0, 0);
+    dummy.scale.set(1, ph, 1);
+    dummy.updateMatrix();
+    pilMesh.setMatrixAt(i, dummy.matrix);
+  });
+  pilMesh.count = pilasters.length;
+  group.add(pilMesh);
+
   // All lit windows in one instanced draw — but each window gets its own
   // colour from the palette's window colours (warm amber, cool blue, rose,
   // pale gold), keyed off its position, so the facades sparkle in varied
@@ -684,9 +913,15 @@ export function buildCity(scene, theme, seed, textures) {
   const windows = new THREE.InstancedMesh(winGeo, winMat, Math.max(1, windowPositions.length));
   const winColors = palette.windowColors || [0xffd98a];
   const tmpColor = new THREE.Color();
-  windowPositions.forEach(([x, y, z, rotY], i) => {
+  windowPositions.forEach(([x, y, z, rotY, sc], i) => {
     dummy.position.set(x, y, z);
     dummy.rotation.set(0, rotY, 0);
+    // Builder #12: varied window sizes — a few double-width, a few
+    // taller — so the lit grid is not one repeated stamp. Drum windows
+    // carry their own 1.8x scale (5th entry) on top of that.
+    const sv = hash2(x * 1.7, y + z * 2.3);
+    const mult = sc || 1;
+    dummy.scale.set((sv < 0.18 ? 1.6 : 1) * mult, (sv > 0.9 ? 1.5 : 1) * mult, 1);
     dummy.updateMatrix();
     windows.setMatrixAt(i, dummy.matrix);
     tmpColor.setHex(winColors[Math.floor(hash2(x, y + z) * winColors.length) % winColors.length]);
@@ -783,8 +1018,13 @@ export function buildCity(scene, theme, seed, textures) {
   // ever stands in the camera's face. The checks are seeded by position,
   // never by the stream, so the layout never moves.
   const palmSpots = [];
-  function spotPalm(px, pz, lean) {
-    palmSpots.push([px, pz, lean, 5.5 + hash2(px + 3, pz + 8) * 3.5]);
+  // Builder #12: the 5th entry is a frond-length scale. Palms beside
+  // the two east-west streets the shots drive down (z=±24) wear SHORT
+  // fronds (0.6x) — a full-length frond from a kerb palm 5 units off the
+  // lane used to rake diagonally across a third of the driving frame
+  // (the #11 nit that survived into #12's first driving shot).
+  function spotPalm(px, pz, lean, frondScale = 1) {
+    palmSpots.push([px, pz, lean, 5.5 + hash2(px + 3, pz + 8) * 3.5, frondScale]);
   }
   // Builder #11: palms ring the island on both kerbs of the ring boulevard
   // (inner kerb on land, outer kerb on the sand), so the coastal road is
@@ -815,12 +1055,12 @@ export function buildCity(scene, theme, seed, textures) {
   for (const street of [24, -24]) {
     for (let x = -123; x <= 150; x += 34) {
       if (CITY.streets.some((s) => Math.abs(x - s) < 7)) continue;
-      streetPalms.push([x, street - 8.6], [x, street + 8.6]);
+      streetPalms.push([x, street - 8.6, 0.6], [x, street + 8.6, 0.6]);
     }
   }
-  for (const [px, pz] of streetPalms) {
+  for (const [px, pz, fs] of streetPalms) {
     if (hitsBuilding(buildings, px, pz, 2.6)) continue;
-    spotPalm(px, pz, hash2(px, pz) > 0.5 ? 0.1 : -0.1);
+    spotPalm(px, pz, hash2(px, pz) > 0.5 ? 0.1 : -0.1, fs || 1);
   }
   // One instanced draw for all trunks, one for all fronds, one for the
   // coconut clusters. A frond is a long tapered cone whose base sits at
@@ -844,7 +1084,7 @@ export function buildCity(scene, theme, seed, textures) {
   const frondEuler = new THREE.Euler(0, 0, 0, 'YXZ');
   let frondIndex = 0;
   let nutIndex = 0;
-  palmSpots.forEach(([px, pz, lean, trunkH], pi) => {
+  palmSpots.forEach(([px, pz, lean, trunkH, frondScale], pi) => {
     dummy.position.set(px, trunkH / 2, pz);
     dummy.rotation.set(0, 0, lean);
     dummy.scale.set(1, trunkH, 1);
@@ -855,7 +1095,7 @@ export function buildCity(scene, theme, seed, textures) {
     for (let f = 0; f < FRONDS_PER_PALM; f += 1) {
       const az = phase + (f / FRONDS_PER_PALM) * Math.PI * 2;
       const tilt = (100 + hash2(px + f * 3, pz + f) * 25) * (Math.PI / 180);
-      const len = 3.4 + hash2(px + f, pz + f * 5) * 1.8;
+      const len = (3.4 + hash2(px + f, pz + f * 5) * 1.8) * (frondScale || 1);
       frondEuler.set(tilt, az, 0);
       frondQuat.setFromEuler(frondEuler);
       dummy.position.set(px + Math.sin(az) * 0.35, crownY, pz + Math.cos(az) * 0.35);
@@ -1027,14 +1267,20 @@ export function buildCity(scene, theme, seed, textures) {
   // driving frames and clear of the downtown skyline from the title
   // camera — the north beach hid it behind the towers.
   const wheel = new THREE.Group();
+  // Builder #12: BIGGER and PINK — the 18-radius gold rim vanished
+  // against the photographed sunset's own gold glow at the end of the
+  // street, so the landmark never read in the cover. A 24-radius rim in
+  // hot pink with bigger gondolas stands off the orange sky instead of
+  // melting into it. Hub at y=28 (rim bottom still kisses the sand at
+  // y=4); legs lengthened to match.
   const rim = new THREE.Mesh(
-    new THREE.TorusGeometry(18, 0.6, 8, 44),
-    new THREE.MeshBasicMaterial({ color: 0xffd94a }),
+    new THREE.TorusGeometry(24, 1.1, 8, 48),
+    new THREE.MeshBasicMaterial({ color: 0xff2a6a }),
   );
   wheel.add(rim);
   const spokeMat = new THREE.MeshBasicMaterial({ color: 0xffe9a0 });
   for (let i = 0; i < 4; i += 1) {
-    const spoke = new THREE.Mesh(new THREE.BoxGeometry(36, 0.45, 0.45), spokeMat);
+    const spoke = new THREE.Mesh(new THREE.BoxGeometry(48, 0.5, 0.5), spokeMat);
     spoke.rotation.z = (i * Math.PI) / 4;
     wheel.add(spoke);
   }
@@ -1042,34 +1288,36 @@ export function buildCity(scene, theme, seed, textures) {
   for (let i = 0; i < 8; i += 1) {
     const a = (i / 8) * Math.PI * 2;
     const gondola = new THREE.Mesh(
-      new THREE.BoxGeometry(2.6, 2, 2),
+      new THREE.BoxGeometry(3.8, 2.8, 2.8),
       new THREE.MeshStandardMaterial({ color: gondolaCols[i % gondolaCols.length], roughness: 0.6 }),
     );
-    gondola.position.set(Math.cos(a) * 18, Math.sin(a) * 18, 0);
+    gondola.position.set(Math.cos(a) * 24, Math.sin(a) * 24, 0);
     wheel.add(gondola);
   }
   const hub = new THREE.Mesh(
-    new THREE.SphereGeometry(1.4, 10, 8),
+    new THREE.SphereGeometry(1.6, 10, 8),
     new THREE.MeshBasicMaterial({ color: 0xff5a7a }),
   );
   wheel.add(hub);
-  wheel.position.set(178, 22, -9);
+  wheel.position.set(178, 28, -9);
   group.add(wheel);
   // A soft gold halo over the wheel's hub, so the landmark shimmers at
-  // dusk instead of sitting flat against the sky.
+  // dusk instead of sitting flat against the sky. Builder #12: kept
+  // TIGHT (54, not 70) — the old 70-wide halo washed the thin rim out
+  // against the sunset whenever the wheel stood near the sun.
   const wheelGlow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: makeGlowTexture(), color: 0xffd94a, transparent: true, opacity: 0.45,
     blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
   }));
-  wheelGlow.position.set(178, 22, -9);
-  wheelGlow.scale.set(70, 70, 1);
+  wheelGlow.position.set(178, 28, -9);
+  wheelGlow.scale.set(58, 58, 1);
   group.add(wheelGlow);
   for (const dz of [-9, 9]) {
     const leg = new THREE.Mesh(
-      new THREE.BoxGeometry(1.4, 23, 1.4),
+      new THREE.BoxGeometry(1.4, 31, 1.4),
       new THREE.MeshStandardMaterial({ color: 0x3a3a44, roughness: 0.7, metalness: 0.5 }),
     );
-    leg.position.set(178, 11.5, -9 + dz);
+    leg.position.set(178, 15.5, -9 + dz);
     leg.rotation.x = dz > 0 ? -0.35 : 0.35;
     group.add(leg);
   }

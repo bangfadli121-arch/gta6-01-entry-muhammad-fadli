@@ -461,7 +461,7 @@ export function buildCity(scene, theme, seed, textures) {
             ? range(rng, 5, 11)
             : range(rng, 7, 26) * (1.35 - distCentre * 0.7);
         const bx = cx + ox;
-        const bz = cz + oz;
+        let bz = cz + oz;
         // Builder #12 — COVER SIGHTLINE (fadli: wheel + billboard wajib
         // kelihatan di cover). The chase camera drives east down the z=-24
         // street toward the wheel at (178,-9) and the boards at x=184.
@@ -497,6 +497,22 @@ export function buildCity(scene, theme, seed, textures) {
           ? Math.min(h0, nearCoverCamera ? 5 : 8)
           : inBoardSightline ? Math.min(h0, 7)
             : byCoverStreetNorth ? Math.min(h0, 18) : h0;
+        // Builder #14 — MOVE THE HOUSE OFF THE ROAD (fadli: "knp ada rmh
+        // tengah jalan"). The probe puts the (133,-11) shop's centre at
+        // screen (0.508, 0.511) in the cover frame — the vanishing point —
+        // so the chase drove straight into its photo-facade west face and
+        // the street read as ending at a house. It moves one slot south,
+        // to (133,11), beside its (155,11) neighbour: a general rule for
+        // the beachfront column's north half of the cover-street block, so
+        // any seed's shop there moves, not just this one. The remap runs
+        // AFTER the height caps above, so the moved shop keeps the
+        // corridor cap of 5 — a taller shop here would cut the FLAMINGO
+        // board — and before any mesh is built, so collision, the minimap
+        // and the palms all see the new spot. The rng stream is untouched,
+        // so every other building is identical, and the street now runs
+        // clear past the ring boulevard to the beach, the wheel and the
+        // ocean.
+        if (isShopRow && cz === 0 && bz < 0 && bz >= -16) bz += 22;
         const mat = isCasino
           ? tintMats[Math.floor(hash2(bx + 91, bz + 7) * tintMats.length) % tintMats.length]
           : isShopRow
@@ -742,14 +758,23 @@ export function buildCity(scene, theme, seed, textures) {
             stripe.position.set(bx - (w * 0.7) / 2 + ((w * 0.7) / 8) * (2 * sIdx + 1), 3.4, bz + d / 2 + 0.8);
             group.add(stripe);
           }
-          // Shopfront glass: one wide bright pane under the awning.
+          // Shopfront glass: a thin glazed box with two mullions, not a
+          // flat plane — Builder #14: the old plane read as a bright
+          // sticker on the wall; the box has real depth and the mullions
+          // break it into three lights.
           if (isShopRow) {
             const glass = new THREE.Mesh(
-              new THREE.PlaneGeometry(w * 0.62, 2.2),
-              new THREE.MeshBasicMaterial({ color: 0x8fc8e0, transparent: true, opacity: 0.65 }),
+              new THREE.BoxGeometry(w * 0.62, 2.2, 0.16),
+              new THREE.MeshStandardMaterial({ color: 0x9fd4e8, roughness: 0.15, metalness: 0.4 }),
             );
-            glass.position.set(bx, 1.9, bz + d / 2 + 0.06);
+            glass.position.set(bx, 1.9, bz + d / 2 + 0.08);
             group.add(glass);
+            const mullMat = new THREE.MeshStandardMaterial({ color: 0x2a2a32, roughness: 0.7, metalness: 0.3 });
+            for (const mx of [-w * 0.155, w * 0.155]) {
+              const mull = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.2, 0.2), mullMat);
+              mull.position.set(bx + mx, 1.9, bz + d / 2 + 0.1);
+              group.add(mull);
+            }
           }
         }
         // Lit windows on all four faces, so the towers read busy from any
@@ -920,28 +945,65 @@ export function buildCity(scene, theme, seed, textures) {
   // colour from the palette's window colours (warm amber, cool blue, rose,
   // pale gold), keyed off its position, so the facades sparkle in varied
   // light instead of one flat yellow grid.
-  const winGeo = new THREE.PlaneGeometry(1.2, 1.0);
-  const winMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
-  const windows = new THREE.InstancedMesh(winGeo, winMat, Math.max(1, windowPositions.length));
+  // Builder #14 — REAL 3D WINDOWS (fadli: "knp masih ada tempelan"): the
+  // old lit window was one flat plane 0.06 proud of the wall, so from the
+  // chase camera it read as a white sticker pasted on the facade. A window
+  // is now a five-piece unit with real depth: a lit pane set 0.14 back
+  // inside a thin dark-bronze frame of top/bottom rails and side stiles,
+  // the whole unit standing 0.26 proud of the wall, so every window has a
+  // shadow gap, a border and side faces that catch the light from any
+  // angle. The pane fills 82% of the unit — a thick black frame would
+  // read as a dark hole with a sticker inside, so the frame stays thin
+  // (0.12) and warm dark, never black. Three instanced draws (panes,
+  // horizontal rails, vertical stiles) keep the cost flat no matter how
+  // many windows the city wears.
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x3a2f28, roughness: 0.9 });
+  const paneGeo = new THREE.BoxGeometry(1.24, 1.04, 0.16);
+  const paneMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const railHGeo = new THREE.BoxGeometry(1.36, 0.12, 0.4);
+  const railVGeo = new THREE.BoxGeometry(0.12, 1.04, 0.4);
+  const panes = new THREE.InstancedMesh(paneGeo, paneMat, Math.max(1, windowPositions.length));
+  const railsH = new THREE.InstancedMesh(railHGeo, frameMat, Math.max(1, windowPositions.length * 2));
+  const railsV = new THREE.InstancedMesh(railVGeo, frameMat, Math.max(1, windowPositions.length * 2));
   const winColors = palette.windowColors || [0xffd98a];
   const tmpColor = new THREE.Color();
   windowPositions.forEach(([x, y, z, rotY, sc], i) => {
-    dummy.position.set(x, y, z);
-    dummy.rotation.set(0, rotY, 0);
     // Builder #12: varied window sizes — a few double-width, a few
     // taller — so the lit grid is not one repeated stamp. Drum windows
     // carry their own 1.8x scale (5th entry) on top of that.
     const sv = hash2(x * 1.7, y + z * 2.3);
     const mult = sc || 1;
-    dummy.scale.set((sv < 0.18 ? 1.6 : 1) * mult, (sv > 0.9 ? 1.5 : 1) * mult, 1);
-    dummy.updateMatrix();
-    windows.setMatrixAt(i, dummy.matrix);
+    const sx = (sv < 0.18 ? 1.6 : 1) * mult;
+    const sy = (sv > 0.9 ? 1.5 : 1) * mult;
+    // One base transform per window; each piece is offset in the window's
+    // own local frame (offsets scaled by sx/sy by hand: translateOnAxis
+    // ignores scale, so an unscaled offset would land the rails on the
+    // pane of a double-size window).
+    const place = (mesh, idx, ox, oy, oz) => {
+      dummy.position.set(x, y, z);
+      dummy.rotation.set(0, rotY, 0);
+      dummy.scale.set(sx, sy, 1);
+      dummy.translateX(ox * sx);
+      dummy.translateY(oy * sy);
+      dummy.translateZ(oz);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(idx, dummy.matrix);
+    };
+    place(panes, i, 0, 0, -0.02);
+    place(railsH, i * 2, 0, 0.52, 0);
+    place(railsH, i * 2 + 1, 0, -0.52, 0);
+    place(railsV, i * 2, -0.62, 0, 0);
+    place(railsV, i * 2 + 1, 0.62, 0, 0);
     tmpColor.setHex(winColors[Math.floor(hash2(x, y + z) * winColors.length) % winColors.length]);
-    windows.setColorAt(i, tmpColor);
+    panes.setColorAt(i, tmpColor);
   });
-  windows.count = windowPositions.length;
-  if (windows.instanceColor) windows.instanceColor.needsUpdate = true;
-  group.add(windows);
+  panes.count = windowPositions.length;
+  railsH.count = windowPositions.length * 2;
+  railsV.count = windowPositions.length * 2;
+  if (panes.instanceColor) panes.instanceColor.needsUpdate = true;
+  group.add(panes);
+  group.add(railsH);
+  group.add(railsV);
 
   // Builder #11: the sand and the ocean are the rings built at the top of
   // this function now (beachRing + oceanRing + foamRing, all the way round
@@ -1062,7 +1124,15 @@ export function buildCity(scene, theme, seed, textures) {
   const streetPalms = [];
   for (let z = -160; z <= 160; z += 32) {
     if (CITY.streets.some((s) => Math.abs(z - s) < 7)) continue;
-    streetPalms.push([111.4, z], [128.6, z]);
+    // Builder #14 — the avenue palms at z=±32 stand 8 units off the two
+    // shot streets (±24), so the (111.4,32) palm is 6 units from the
+    // driving camera and its fronds rake across a third of the driving
+    // frame. Palms that close to a shot street move 12 units further down
+    // the avenue (to ±44), clear of both chase cameras, instead of being
+    // cut — the avenue keeps its palms, the shots keep their frames.
+    let pz = z;
+    if (Math.abs(Math.abs(z) - 24) <= 10) pz = Math.sign(z) * (Math.abs(z) + 12);
+    streetPalms.push([111.4, pz], [128.6, pz]);
   }
   for (const street of [24, -24]) {
     for (let x = -123; x <= 150; x += 34) {
@@ -1078,13 +1148,22 @@ export function buildCity(scene, theme, seed, textures) {
   // coconut clusters. A frond is a long tapered cone whose base sits at
   // the crown and whose tip droops 10–35° below horizontal, fanned around
   // the trunk; the two greens alternate by position hash.
-  const FRONDS_PER_PALM = 9;
+  // Builder #14 — REAL 3D CROWNS (fadli: "knp masih ada tempelan"): the
+  // old frond was a 5-sided cone squashed flat (0.45), so each crown read
+  // as one flat green fan. Fronds are now rounder (6 sides, 0.8 squash,
+  // wider radius) with varied lengths, plus three short upright fronds in
+  // the middle of each crown, so the crown reads as a 3D pom-pom from any
+  // street, not a paper fan. The outer nine keep their 100–125° droop:
+  // the first pass fanned them near-horizontal (85°) and a kerb palm
+  // beside the driving camera raked giant blades across a third of the
+  // driving frame — drooping fronds stay beside their trunk instead.
+  const FRONDS_PER_PALM = 12;
   const palmCount = palmSpots.length;
   const trunkGeo = new THREE.CylinderGeometry(0.22, 0.34, 1, 7);
   const trunkMat = new THREE.MeshStandardMaterial({ color: 0x7a5230, roughness: 1 });
   const trunks = new THREE.InstancedMesh(trunkGeo, trunkMat, Math.max(1, palmCount));
-  const frondGeo = new THREE.ConeGeometry(0.42, 1, 5);
-  frondGeo.scale(1, 1, 0.45);
+  const frondGeo = new THREE.ConeGeometry(0.55, 1, 6);
+  frondGeo.scale(1, 1, 0.8);
   frondGeo.translate(0, 0.5, 0);
   const frondMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
   const fronds = new THREE.InstancedMesh(frondGeo, frondMat, Math.max(1, palmCount * FRONDS_PER_PALM));
@@ -1104,8 +1183,8 @@ export function buildCity(scene, theme, seed, textures) {
     trunks.setMatrixAt(pi, dummy.matrix);
     const crownY = trunkH + 0.1;
     const phase = hash2(px, pz) * Math.PI * 2;
-    for (let f = 0; f < FRONDS_PER_PALM; f += 1) {
-      const az = phase + (f / FRONDS_PER_PALM) * Math.PI * 2;
+    for (let f = 0; f < 9; f += 1) {
+      const az = phase + (f / 9) * Math.PI * 2;
       const tilt = (100 + hash2(px + f * 3, pz + f) * 25) * (Math.PI / 180);
       const len = (3.4 + hash2(px + f, pz + f * 5) * 1.8) * (frondScale || 1);
       frondEuler.set(tilt, az, 0);
@@ -1116,6 +1195,20 @@ export function buildCity(scene, theme, seed, textures) {
       dummy.updateMatrix();
       fronds.setMatrixAt(frondIndex, dummy.matrix);
       fronds.setColorAt(frondIndex, frondCols[Math.floor(hash2(px + f * 7, pz) * frondCols.length) % frondCols.length]);
+      frondIndex += 1;
+    }
+    for (let f = 0; f < 3; f += 1) {
+      const az = phase + f * 2.4 + 0.8;
+      const tilt = (30 + hash2(px + f * 11, pz + f * 3) * 25) * (Math.PI / 180);
+      const len = (2.2 + hash2(px + f * 5, pz + f * 9) * 0.8) * (frondScale || 1);
+      frondEuler.set(tilt, az, 0);
+      frondQuat.setFromEuler(frondEuler);
+      dummy.position.set(px + Math.sin(az) * 0.2, crownY, pz + Math.cos(az) * 0.2);
+      dummy.quaternion.copy(frondQuat);
+      dummy.scale.set(1, len, 1);
+      dummy.updateMatrix();
+      fronds.setMatrixAt(frondIndex, dummy.matrix);
+      fronds.setColorAt(frondIndex, frondCols[Math.floor(hash2(px + f * 13, pz + 5) * frondCols.length) % frondCols.length]);
       frondIndex += 1;
     }
     for (let n = 0; n < 3; n += 1) {
@@ -1241,23 +1334,58 @@ export function buildCity(scene, theme, seed, textures) {
   // group's local -X face is the painted face; rotY turns its normal
   // toward the camera (FLAMINGO -PI/4 faces south-west down the street,
   // VICE +0.4 faces north-west). Poles, glow and light ride in the group.
+  // Builder #14 — A REAL CABINET, NOT A POSTER (fadli: "knp masih ada
+  // tempelan"): the old board was one 0.6-thick box, so from the chase it
+  // read as a poster nailed to the sky. The face now sits 0.2 recessed
+  // inside a dark bezel (top/bottom rails + side stiles, proud of the
+  // face), backed by a 1.6-deep cabinet box, so the board has a rim and a
+  // real side profile; it stands on two thick poles with a crossbeam
+  // under the board, diagonal struts up to the cabinet, and concrete
+  // footings at the bases — a structure, not a picture.
+  const cabinetMat = new THREE.MeshStandardMaterial({ color: 0x1c1c26, roughness: 0.6, metalness: 0.4 });
+  const footingMat = new THREE.MeshStandardMaterial({ color: 0x9a9a92, roughness: 1 });
   function addBillboard(x, z, rotY, w, h, cy, art, spec, glowColor) {
     const boardGroup = new THREE.Group();
     boardGroup.position.set(x, 0, z);
     boardGroup.rotation.y = rotY;
     group.add(boardGroup);
-    const poleH = cy + h / 2;
+    const poleH = cy + h / 2 + 0.5;
     for (const dz of [-(w / 2 - 1), w / 2 - 1]) {
-      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, poleH, 8), boardPoleMat);
-      pole.position.set(0, poleH / 2, dz);
+      const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.7, poleH, 10), boardPoleMat);
+      pole.position.set(0.8, poleH / 2, dz);
       boardGroup.add(pole);
+      const footing = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 1.8), footingMat);
+      footing.position.set(0.8, 0.45, dz);
+      boardGroup.add(footing);
+      const strut = new THREE.Mesh(new THREE.BoxGeometry(0.35, 2.9, 0.35), boardPoleMat);
+      strut.position.set(1.15, cy - h / 2 - 1.6, dz);
+      strut.rotation.z = -0.245;
+      boardGroup.add(strut);
     }
+    const beam = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.8, w), boardPoleMat);
+    beam.position.set(0.8, cy - h / 2 - 0.4, 0);
+    boardGroup.add(beam);
+    const cabinet = new THREE.Mesh(new THREE.BoxGeometry(1.6, h + 0.4, w + 0.4), cabinetMat);
+    cabinet.position.set(0.8, cy, 0);
+    boardGroup.add(cabinet);
     const board = new THREE.Mesh(
       new THREE.BoxGeometry(0.6, h, w),
       new THREE.MeshBasicMaterial({ map: paintBoard(art, spec), toneMapped: false }),
     );
     board.position.set(0, cy, 0);
     boardGroup.add(board);
+    const railH = new THREE.BoxGeometry(0.7, 0.9, w + 1.0);
+    for (const dy of [h / 2 + 0.45, -h / 2 - 0.45]) {
+      const rail = new THREE.Mesh(railH, cabinetMat);
+      rail.position.set(-0.15, cy + dy, 0);
+      boardGroup.add(rail);
+    }
+    const railV = new THREE.BoxGeometry(0.7, h, 1.0);
+    for (const dz of [w / 2 + 0.5, -w / 2 - 0.5]) {
+      const stile = new THREE.Mesh(railV, cabinetMat);
+      stile.position.set(-0.15, cy, dz);
+      boardGroup.add(stile);
+    }
     // The billboard glows: a compact additive halo sprite floating just
     // in front of the board, and one real point light spilling neon onto
     // the promenade palms and sand, so the board reads as a light source,
@@ -1266,7 +1394,7 @@ export function buildCity(scene, theme, seed, textures) {
     // the cover frame. (Physical light units: intensity 80 at decay 1.6
     // throws a visible wash out to ~30 units.)
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({
-      map: makeGlowTexture(), color: glowColor, transparent: true, opacity: 0.45,
+      map: makeGlowTexture(), color: glowColor, transparent: true, opacity: 0.35,
       blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
     }));
     glow.position.set(-1.5, cy, 0);

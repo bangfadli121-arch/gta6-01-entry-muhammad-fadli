@@ -17,9 +17,9 @@ function cloudSpots(count) {
     const r = 180 + ((i * 97) % 160);
     spots.push({
       x: Math.cos(a) * r,
-      y: 95 + ((i * 53) % 55),
+      y: 60 + ((i * 53) % 70),
       z: Math.sin(a) * r,
-      s: 14 + ((i * 37) % 18),
+      s: 16 + ((i * 37) % 22),
     });
   }
   return spots;
@@ -47,26 +47,42 @@ export function createRenderer(canvas, theme) {
   const palette = PALETTES[theme];
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  // Filmic tone mapping: deeper contrast and livelier colour than the flat
+  // linear look, so the sunset reads rich instead of washed out. The sun,
+  // the billboard and the glow sprites opt out (toneMapped: false) and stay
+  // punchy — they are the lights, not the things the light falls on.
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.15;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(palette.skyTop ?? palette.sky);
   // Golden hour haze reaches much farther than the night fog, so the distant
   // skyline stays visible instead of drowning at 320 units.
-  scene.fog = new THREE.Fog(palette.fog, theme === 'sunset' ? 120 : 90, theme === 'sunset' ? 520 : 320);
+  scene.fog = new THREE.Fog(palette.fog, theme === 'sunset' ? 120 : 90, theme === 'sunset' ? 600 : 320);
 
   const hemi = new THREE.HemisphereLight(palette.hemiSky, palette.hemiGround, palette.hemiIntensity);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(palette.sun, palette.sunIntensity);
   sun.position.set(palette.sunPosition[0], palette.sunPosition[1], palette.sunPosition[2]);
   scene.add(sun);
+  // A warm fill from the east, from the sun's own direction over the ocean:
+  // it throws the low sun's specular streak down the east streets onto the
+  // wet-looking asphalt, and rims the east faces the main light misses.
+  if (theme === 'sunset') {
+    const eastFill = new THREE.DirectionalLight(0xffb060, 0.8);
+    eastFill.position.set(200, 40, 10);
+    scene.add(eastFill);
+  }
   const fill = new THREE.AmbientLight(0xffffff, palette.ambient);
   scene.add(fill);
 
   const camera = new THREE.PerspectiveCamera(62, 1280 / 480, 0.1, 1200);
   camera.position.set(0, 8, -14);
 
-  // --- The sky: a gradient dome, violet dusk at the top melting through
-  // orange to a pale-gold horizon. It sits behind everything (BackSide,
-  // depthWrite off, fog off) and never moves with the camera's chase.
+  // --- The sky: a gradient dome in four bands — violet dusk at the top,
+  // pink, then orange, then a pale-gold horizon — so the sky reads as
+  // layered sunset bands instead of one flat orange wash. It sits behind
+  // everything (BackSide, depthWrite off, fog off) and never moves with
+  // the camera's chase.
   const skyDome = new THREE.Mesh(
     new THREE.SphereGeometry(800, 28, 18),
     new THREE.ShaderMaterial({
@@ -75,13 +91,16 @@ export function createRenderer(canvas, theme) {
       fog: false,
       uniforms: {
         top: { value: new THREE.Color(palette.skyTop ?? palette.sky) },
+        upper: { value: new THREE.Color(palette.skyUpper ?? palette.skyMid ?? palette.sky) },
         mid: { value: new THREE.Color(palette.skyMid ?? palette.sky) },
         bot: { value: new THREE.Color(palette.horizon ?? palette.sky) },
       },
       vertexShader: 'varying vec3 vP; void main() { vP = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
-      fragmentShader: 'varying vec3 vP; uniform vec3 top; uniform vec3 mid; uniform vec3 bot;'
+      fragmentShader: 'varying vec3 vP; uniform vec3 top; uniform vec3 upper; uniform vec3 mid; uniform vec3 bot;'
         + 'void main() { float h = normalize(vP).y;'
-        + ' vec3 c = h > 0.22 ? mix(mid, top, smoothstep(0.22, 0.8, h)) : mix(bot, mid, smoothstep(-0.06, 0.22, h));'
+        + ' vec3 c = h > 0.42 ? mix(upper, top, smoothstep(0.42, 0.85, h))'
+        + ' : h > 0.10 ? mix(mid, upper, smoothstep(0.10, 0.30, h))'
+        + ' : mix(bot, mid, smoothstep(-0.06, 0.10, h));'
         + ' gl_FragColor = vec4(c, 1.0); }',
     }),
   );
@@ -89,27 +108,68 @@ export function createRenderer(canvas, theme) {
 
   // --- The sun: a big low disc on the horizon with a soft halo behind it,
   // so the sunset reads in every shot — and a smaller, higher moon at night,
-  // so it does not swallow the sky.
+  // so it does not swallow the sky. At sunset the disc sits due east over
+  // the ocean (palette.sunDiscPosition), at the end of the east streets,
+  // while the directional light stays north-west for the wall modelling.
+  const sunDiscPos = theme === 'sunset' && palette.sunDiscPosition
+    ? palette.sunDiscPosition
+    : [palette.sunPosition[0] * 2.4, theme === 'sunset' ? 26 : 90, palette.sunPosition[2] * 2.4];
   const sunGlow = new THREE.Mesh(
-    new THREE.CircleGeometry(theme === 'sunset' ? 62 : 22, 28),
+    new THREE.CircleGeometry(theme === 'sunset' ? 90 : 22, 28),
     new THREE.MeshBasicMaterial({
-      color: theme === 'sunset' ? 0xffb060 : 0x8a9ac8, fog: false,
-      transparent: true, opacity: theme === 'sunset' ? 0.35 : 0.2,
+      color: theme === 'sunset' ? 0xff8a3d : 0x8a9ac8, fog: false,
+      transparent: true, opacity: theme === 'sunset' ? 0.55 : 0.2, toneMapped: false,
     }),
   );
-  sunGlow.position.set(palette.sunPosition[0] * 2.4, theme === 'sunset' ? 26 : 90, palette.sunPosition[2] * 2.4);
+  sunGlow.position.set(sunDiscPos[0], sunDiscPos[1], sunDiscPos[2]);
   sunGlow.lookAt(0, 10, 0);
   scene.add(sunGlow);
   const sunDisc = new THREE.Mesh(
-    new THREE.CircleGeometry(theme === 'sunset' ? 26 : 12, 24),
-    new THREE.MeshBasicMaterial({ color: theme === 'sunset' ? 0xffe9b0 : 0xdfe8ff, fog: false }),
+    new THREE.CircleGeometry(theme === 'sunset' ? 34 : 12, 24),
+    new THREE.MeshBasicMaterial({ color: theme === 'sunset' ? 0xfff8d0 : 0xdfe8ff, fog: false, toneMapped: false }),
   );
-  sunDisc.position.set(palette.sunPosition[0] * 2.4, theme === 'sunset' ? 26 : 90, palette.sunPosition[2] * 2.4);
+  sunDisc.position.set(sunDiscPos[0], sunDiscPos[1], sunDiscPos[2]);
   sunDisc.lookAt(0, 10, 0);
   scene.add(sunDisc);
 
+  // --- The sun's bloom: two additive radial-gradient sprites over the disc,
+  // a wide warm halo and a tight bright core, so the low sun glares instead
+  // of sitting flat on the sky. Sprites always face the camera; the texture
+  // is painted once at boot, so the glare costs no post-processing pass and
+  // stays identical on every run.
+  if (theme === 'sunset') {
+    const glowCanvas = document.createElement('canvas');
+    glowCanvas.width = 128;
+    glowCanvas.height = 128;
+    const gctx = glowCanvas.getContext('2d');
+    const grad = gctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(255,255,255,1)');
+    grad.addColorStop(0.25, 'rgba(255,255,255,0.55)');
+    grad.addColorStop(0.6, 'rgba(255,255,255,0.16)');
+    grad.addColorStop(1, 'rgba(255,255,255,0)');
+    gctx.fillStyle = grad;
+    gctx.fillRect(0, 0, 128, 128);
+    const glowTex = new THREE.CanvasTexture(glowCanvas);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, color: 0xff9a3d, transparent: true, opacity: 0.5,
+      blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+    }));
+    halo.position.set(sunDiscPos[0], sunDiscPos[1], sunDiscPos[2]);
+    halo.scale.set(300, 300, 1);
+    scene.add(halo);
+    const core = new THREE.Sprite(new THREE.SpriteMaterial({
+      map: glowTex, color: 0xfff3c0, transparent: true, opacity: 0.85,
+      blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+    }));
+    core.position.set(sunDiscPos[0], sunDiscPos[1], sunDiscPos[2]);
+    core.scale.set(140, 140, 1);
+    scene.add(core);
+  }
+
   // --- Clouds: flat pink-lit puffs high over the city, two or three lobes
-  // each, so the sky has shape instead of a smooth gradient alone.
+  // each, so the sky has shape instead of a smooth gradient alone. Lower
+  // and bigger than before, so they sit inside the chase camera's frame,
+  // plus long thin sunset streaks low in the east, catching the sun.
   if (theme === 'sunset') {
     const cloudMat = new THREE.MeshBasicMaterial({
       color: palette.cloudTint, fog: false, transparent: true, opacity: 0.9,
@@ -117,7 +177,7 @@ export function createRenderer(canvas, theme) {
     const cloudMat2 = new THREE.MeshBasicMaterial({
       color: 0xffc9a0, fog: false, transparent: true, opacity: 0.75,
     });
-    for (const spot of cloudSpots(12)) {
+    for (const spot of cloudSpots(16)) {
       const puff = new THREE.Group();
       const lobes = 2 + (Math.floor(spot.x) % 2);
       for (let i = 0; i < lobes; i += 1) {
@@ -129,15 +189,36 @@ export function createRenderer(canvas, theme) {
       puff.position.set(spot.x, spot.y, spot.z);
       scene.add(puff);
     }
+    // Sunset streaks: long flat bands low over the ocean, east of the city,
+    // in pink and gold — deterministic positions, never Math.random.
+    const streaks = [
+      { x: 330, y: 34, z: -120, s: 46, c: 0xff9a7a },
+      { x: 380, y: 48, z: 40, s: 58, c: 0xffc9a0 },
+      { x: 300, y: 62, z: 130, s: 40, c: 0xffb060 },
+      { x: 430, y: 60, z: -140, s: 52, c: 0xff8a6a },
+      { x: 260, y: 78, z: -190, s: 36, c: 0xffe8d8 },
+    ];
+    for (const st of streaks) {
+      const band = new THREE.Mesh(
+        new THREE.SphereGeometry(st.s * 0.5, 12, 8),
+        new THREE.MeshBasicMaterial({ color: st.c, fog: false, transparent: true, opacity: 0.75 }),
+      );
+      band.scale.set(2.6, 0.22, 0.7);
+      band.position.set(st.x, st.y, st.z);
+      scene.add(band);
+    }
   }
 
   // --- Distant skyline: hazy towers on the horizon in the theme's skyline
   // tint, fogged warm so they read as a far-off downtown, not geometry.
+  // The eastern wedge stays open: the ocean horizon must read as water and
+  // sky, not as a wall of towers standing in the sea.
   if (theme === 'sunset') {
     const skylineMat = new THREE.MeshStandardMaterial({
       color: palette.skylineTint, roughness: 1, metalness: 0,
     });
     for (const spot of skylineSpots(30)) {
+      if (spot.x > 0 && Math.abs(spot.z) < spot.x * 0.75) continue;
       const tower = new THREE.Mesh(new THREE.BoxGeometry(spot.w, spot.h, spot.d), skylineMat);
       tower.position.set(spot.x, spot.h / 2 - 2, spot.z);
       scene.add(tower);
@@ -185,18 +266,19 @@ export function createRenderer(canvas, theme) {
   }
 
   /** Place the camera for a wide establishing view of the city (title screen):
-   * low in the south-east, looking north-west into the low sun, so the title
+   * low in the south-west, looking north-east across the city toward the
+   * beach, the ferris wheel and the low sun over the ocean, so the title
    * sits over a sunset skyline instead of a dark backdrop. */
   function setEstablishing() {
-    camera.position.set(95, 46, 135);
-    camera.lookAt(-70, 6, -70);
+    camera.position.set(-110, 44, 125);
+    camera.lookAt(90, 8, -70);
     // Reset the chase state to match, so the first play frame does not swoop
     // the camera all the way from the title view to behind the player.
-    camState.x = 95;
-    camState.y = 46;
-    camState.z = 135;
-    camState.lookX = -70;
-    camState.lookY = 6;
+    camState.x = -110;
+    camState.y = 44;
+    camState.z = 125;
+    camState.lookX = 90;
+    camState.lookY = 8;
     camState.lookZ = -70;
   }
 

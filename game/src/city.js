@@ -1,10 +1,19 @@
-// The city of Vice Shores: a grid of blocks between six streets on each axis,
-// a beach and an ocean to the east, docks to the south-west and the Hideout
-// to the north-east. Everything is built from boxes and planes with the
-// theme's palette — no model files, no textures. The builder is seeded, so
-// the same seed always raises the same skyline, which is what makes the
-// screenshots repeatable. It hands back the building boxes the world uses
-// for collision, plus the small road test every driver in the game shares.
+// The city of Vice Shores: a compact ROUND island — a tight grid of blocks
+// inside a curved ring boulevard, a beach and an ocean all the way round,
+// docks to the south-west and the Hideout to the north. Everything is built
+// from boxes, drums and planes with the theme's palette — no model files,
+// no textures. The builder is seeded, so the same seed always raises the
+// same skyline, which is what makes the screenshots repeatable. It hands
+// back the building boxes the world uses for collision, plus the small road
+// test every driver in the game shares.
+//
+// Builder #11: "ga terlalu kotak2" / "map nya bulet padet" — the island is
+// round and dense: the built-up blob ends in a curve at the ring boulevard,
+// the coast is a circle, some towers are rounded drums, the districts are
+// packed tight (docks, beach strip, downtown, palm boulevard, Casino Row),
+// and the ring boulevard curves with the coast. The beachfront column is
+// a low shop row, the tall towers wear the photographed art-deco facades,
+// and the palms ring the island on both kerbs of the boulevard.
 //
 // Golden hour dressing (all visual, all deterministic): pastel towers with
 // coloured parapet caps, rooftop AC boxes and shopfront awnings, windows lit
@@ -122,22 +131,103 @@ export function buildCity(scene, theme, seed, textures) {
     : null));
 
   const buildings = [];
+  // Builder #11: the island — a round land disc, a sand beach ring and an
+  // ocean ring around it, instead of a square ground plane. The land disc
+  // ends at the beach; beyond it the ocean ring runs to the fog, so the
+  // island reads round from every angle, on foot and from the title view.
   const groundMat = new THREE.MeshStandardMaterial({ color: palette.groundTint, roughness: 1 });
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(520, 520), groundMat);
+  const ground = new THREE.Mesh(new THREE.CircleGeometry(CITY.islandRadius, 56), groundMat);
   ground.rotation.x = -Math.PI / 2;
   ground.position.set(0, -0.05, 0);
   group.add(ground);
+  // The beach ring: bright sand hugging the land disc's edge all the way
+  // round the island, so the coast is a curve, never a straight strip.
+  let beachTex = null;
+  if (textures && textures.sand) {
+    beachTex = textures.sand.clone();
+    beachTex.needsUpdate = true;
+    beachTex.wrapS = THREE.RepeatWrapping;
+    beachTex.wrapT = THREE.RepeatWrapping;
+    beachTex.repeat.set(24, 1);
+    beachTex.anisotropy = 4;
+  }
+  const beachRing = new THREE.Mesh(
+    new THREE.RingGeometry(CITY.beachInner, CITY.islandRadius + 2, 56),
+    new THREE.MeshStandardMaterial({ color: beachTex ? 0xffffff : (palette.sandTint ?? 0xc9b078), map: beachTex, roughness: 1 }),
+  );
+  beachRing.rotation.x = -Math.PI / 2;
+  beachRing.position.set(0, 0.03, 0);
+  group.add(beachRing);
+  // The ocean ring: vivid water from the beach out to the horizon.
+  let oceanRingTex = null;
+  if (textures && textures.ocean) {
+    oceanRingTex = textures.ocean.clone();
+    oceanRingTex.needsUpdate = true;
+    oceanRingTex.wrapS = THREE.RepeatWrapping;
+    oceanRingTex.wrapT = THREE.RepeatWrapping;
+    oceanRingTex.repeat.set(24, 2);
+    oceanRingTex.anisotropy = 4;
+  }
+  const oceanMat = new THREE.MeshStandardMaterial({ color: oceanRingTex ? 0xffffff : (palette.oceanTint ?? 0x1a5a8a), map: oceanRingTex, roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.94 });
+  const oceanRing = new THREE.Mesh(
+    new THREE.RingGeometry(CITY.islandRadius, 560, 56),
+    oceanMat,
+  );
+  oceanRing.rotation.x = -Math.PI / 2;
+  oceanRing.position.set(0, 0.02, 0);
+  group.add(oceanRing);
+  // A foam ring where the waves break on the sand, so the shoreline reads
+  // as a bright curve from the driving view and from the title screen.
+  const foamRing = new THREE.Mesh(
+    new THREE.RingGeometry(CITY.islandRadius - 2, CITY.islandRadius + 1, 56),
+    new THREE.MeshBasicMaterial({ color: 0xeaf7ff, transparent: true, opacity: 0.55 }),
+  );
+  foamRing.rotation.x = -Math.PI / 2;
+  foamRing.position.set(0, 0.05, 0);
+  group.add(foamRing);
+
+  // The ring boulevard: the island's curved coastal road — a true circle
+  // of asphalt at ringRadius, with white edge lines and a yellow dashed
+  // centre line, so the main drag curves with the coast instead of running
+  // straight. It meets every street where they cross it (the streets run
+  // out to +-175, the ring's outer edge is ringRadius + ringWidth/2).
+  const ringMat = new THREE.MeshStandardMaterial({ color: palette.roadTint, roughness: 0.4, metalness: 0.1 });
+  const ringRoad = new THREE.Mesh(new THREE.RingGeometry(CITY.ringRadius - CITY.ringWidth / 2, CITY.ringRadius + CITY.ringWidth / 2, 72), ringMat);
+  ringRoad.rotation.x = -Math.PI / 2;
+  ringRoad.position.set(0, 0.02, 0);
+  group.add(ringRoad);
+  const ringEdgeMat = new THREE.MeshBasicMaterial({ color: 0xfff6e0 });
+  for (const rr of [CITY.ringRadius - CITY.ringWidth / 2 + 0.4, CITY.ringRadius + CITY.ringWidth / 2 - 0.4]) {
+    const edge = new THREE.Mesh(new THREE.RingGeometry(rr - 0.2, rr + 0.2, 72), ringEdgeMat);
+    edge.rotation.x = -Math.PI / 2;
+    edge.position.set(0, 0.045, 0);
+    group.add(edge);
+  }
+  const dummy = new THREE.Object3D();
+  const ringDashMat = new THREE.MeshBasicMaterial({ color: 0xffc93a });
+  const ringDashGeo = new THREE.PlaneGeometry(4.5, 0.6);
+  const ringDashes = new THREE.InstancedMesh(ringDashGeo, ringDashMat, 56);
+  for (let i = 0; i < 56; i += 1) {
+    const a = (i / 56) * Math.PI * 2;
+    dummy.position.set(Math.cos(a) * CITY.ringRadius, 0.04, Math.sin(a) * CITY.ringRadius);
+    dummy.rotation.set(-Math.PI / 2, 0, -a + Math.PI / 2);
+    dummy.updateMatrix();
+    ringDashes.setMatrixAt(i, dummy.matrix);
+  }
+  ringDashes.count = 56;
+  group.add(ringDashes);
 
   // Roads: one dark strip per street, both axes, plus pale sidewalk edging
   // in a sandy tone so the streets read against the blocks at golden hour.
   // The asphalt is a little wet-looking — low roughness, so the low sun
   // throws a specular streak down the east streets instead of a flat matte.
+  // Builder #11: the strips run +-175, out to the ring boulevard.
   const roadMat = new THREE.MeshStandardMaterial({ color: palette.roadTint, roughness: 0.4, metalness: 0.1 });
   const walkMat = new THREE.MeshStandardMaterial({ color: palette.sidewalkTint, roughness: 0.9 });
-  const roadGeoX = new THREE.PlaneGeometry(440, CITY.roadWidth);
-  const roadGeoZ = new THREE.PlaneGeometry(CITY.roadWidth, 440);
-  const walkGeoX = new THREE.PlaneGeometry(440, CITY.roadWidth + 6);
-  const walkGeoZ = new THREE.PlaneGeometry(CITY.roadWidth + 6, 440);
+  const roadGeoX = new THREE.PlaneGeometry(350, CITY.roadWidth);
+  const roadGeoZ = new THREE.PlaneGeometry(CITY.roadWidth, 350);
+  const walkGeoX = new THREE.PlaneGeometry(350, CITY.roadWidth + 6);
+  const walkGeoZ = new THREE.PlaneGeometry(CITY.roadWidth + 6, 350);
   for (const s of CITY.streets) {
     const walkX = new THREE.Mesh(walkGeoX, walkMat);
     walkX.rotation.x = -Math.PI / 2;
@@ -161,12 +251,11 @@ export function buildCity(scene, theme, seed, textures) {
   // yellow centre line on dark asphalt, like the beach-city boulevards.
   const dashMat = new THREE.MeshBasicMaterial({ color: 0xffc93a });
   const dashGeo = new THREE.PlaneGeometry(5, 0.7);
-  const dashes = new THREE.InstancedMesh(dashGeo, dashMat, CITY.streets.length * 2 * 22);
-  const dummy = new THREE.Object3D();
+  const dashes = new THREE.InstancedMesh(dashGeo, dashMat, CITY.streets.length * 2 * 18);
   let dashIndex = 0;
   for (const s of CITY.streets) {
-    for (let i = 0; i < 22; i += 1) {
-      const along = -200 + i * 19;
+    for (let i = 0; i < 18; i += 1) {
+      const along = -160 + i * 19;
       dummy.position.set(along, 0.04, s);
       dummy.rotation.set(-Math.PI / 2, 0, 0);
       dummy.updateMatrix();
@@ -214,7 +303,7 @@ export function buildCity(scene, theme, seed, textures) {
   // sun streak down the two east-west arterials toward the low sun — the
   // wet-look reflection that keeps the road from reading as a black void.
   const edgeMat = new THREE.MeshBasicMaterial({ color: 0xfff6e0 });
-  const edgeGeo = new THREE.PlaneGeometry(440, 0.35);
+  const edgeGeo = new THREE.PlaneGeometry(350, 0.35);
   const edges = new THREE.InstancedMesh(edgeGeo, edgeMat, CITY.streets.length * 2 * 2);
   let edgeIndex = 0;
   for (const s of CITY.streets) {
@@ -239,7 +328,7 @@ export function buildCity(scene, theme, seed, textures) {
     color: 0xffb060, transparent: true, opacity: 0.16,
     blending: THREE.AdditiveBlending, depthWrite: false,
   });
-  for (const sz of [29, -29]) {
+  for (const sz of [24, -24]) {
     const streak = new THREE.Mesh(new THREE.PlaneGeometry(230, 4.5), streakMat);
     streak.rotation.x = -Math.PI / 2;
     streak.position.set(45, 0.05, sz);
@@ -302,7 +391,7 @@ export function buildCity(scene, theme, seed, textures) {
   }
   for (const s of CITY.streets) {
     for (const [along, side] of [[-110, 1], [100, -1]]) {
-      if ((s === 29 || s === -29) && along > 20 && along < 80) continue;
+      if ((s === 24 || s === -24) && along > 20 && along < 80) continue;
       addParkedCar(along, s + side * 5.8, side > 0 ? 0 : Math.PI, parkedCols[(Math.abs(s) + Math.abs(along)) % parkedCols.length]);
       addParkedCar(s + side * 5.8, along, side > 0 ? -Math.PI / 2 : Math.PI / 2, parkedCols[(Math.abs(s) * 2 + Math.abs(along)) % parkedCols.length]);
     }
@@ -331,56 +420,82 @@ export function buildCity(scene, theme, seed, textures) {
   const accentMats = palette.neon.map(
     (n) => new THREE.MeshStandardMaterial({ color: n, roughness: 0.7 }),
   );
+  // Builder #11: the built-up area is a ROUNDED blob, not a square grid —
+  // blocks whose centre falls outside radius 152 are never built, so the
+  // skyline ends in a curve at the ring boulevard instead of a square edge.
+  // Edge blocks build smaller, so no tower corner ever pokes onto the ring.
   const windowPositions = [];
   let neonCount = 0;
   for (const cx of BLOCK_CENTRES) {
     for (const cz of BLOCK_CENTRES) {
-      if (cx > 150) continue;
+      if (Math.hypot(cx, cz) > 152) continue;
       const distCentre = Math.hypot(cx, cz) / 220;
       const isShopRow = cx >= 116;
+      // Casino Row: the (96,-96) block is the neon district — tall, bright,
+      // and signed, so the map has a landmark district of its own.
+      const isCasino = cx === 96 && cz === -96;
       const count = isShopRow ? 2 : (chance(rng, 0.55) ? 2 : 1);
       const slots = count === 2
         ? [[-11, -11], [11, 11]]
         : [[0, 0]];
       for (const [ox, oz] of slots) {
-        const w = isShopRow ? range(rng, 12, 16) : range(rng, 14, 20);
-        const d = isShopRow ? range(rng, 12, 16) : range(rng, 14, 20);
-        const h = isShopRow
-          ? range(rng, 5, 11)
-          : range(rng, 7, 26) * (1.35 - distCentre * 0.7);
+        const edgeBlock = Math.hypot(cx, cz) > 138;
+        // Builder #11 fix: the pitch-48 rebuild puts the slots 13 from the
+        // street centre, so a 20-deep tower's corner blocked BOTH lanes of
+        // the street (the cover chase wedged at x=-21.9 against the
+        // (-11,-11) tower, speedo 0). Footprints are capped at 14 so the
+        // lane clears every tower corner by a unit.
+        const w = Math.min(isShopRow ? range(rng, 12, 16) : range(rng, 14, edgeBlock ? 16 : 20), 14);
+        const d = Math.min(isShopRow ? range(rng, 12, 16) : range(rng, 14, edgeBlock ? 16 : 20), 14);
+        const h = isCasino
+          ? range(rng, 30, 40)
+          : isShopRow
+            ? range(rng, 5, 11)
+            : range(rng, 7, 26) * (1.35 - distCentre * 0.7);
         const bx = cx + ox;
         const bz = cz + oz;
-        const mat = isShopRow
-          ? shopRoofMats[Math.floor(hash2(bx, bz) * shopRoofMats.length) % shopRoofMats.length]
-          : pick(rng, tintMats);
-        // Builder #10: the four side faces wear the photographed art-deco
-        // facade (variant keyed off the tower's position, so the same
-        // tower always shows the same facade), the top and bottom keep the
-        // flat tint — a tower is a photographed building now, not a painted
-        // box with a grid of square windows. Without textures the whole box
-        // keeps the flat tint exactly as before.
-        const facade = facadeMats.length
+        const mat = isCasino
+          ? tintMats[Math.floor(hash2(bx + 91, bz + 7) * tintMats.length) % tintMats.length]
+          : isShopRow
+            ? shopRoofMats[Math.floor(hash2(bx, bz) * shopRoofMats.length) % shopRoofMats.length]
+            : pick(rng, tintMats);
+        // Builder #11: "ga terlalu kotak2" — some tall towers are ROUNDED,
+        // faceted drums instead of boxes, so the skyline has curves in it.
+        // A drum keeps the same collision box as the box it replaces.
+        const isDrum = !isShopRow && !isCasino && h > 15 && hash2(bx + 77, bz + 31) > 0.6;
+        const facade = facadeMats.length && !isDrum
           ? facadeMats[Math.floor(hash2(bx + 51, bz + 23) * facadeMats.length) % facadeMats.length]
           : null;
-        const tower = new THREE.Mesh(
-          new THREE.BoxGeometry(w, h, d),
-          facade ? [facade, facade, mat, mat, facade, facade] : mat,
-        );
+        const tower = isDrum
+          ? new THREE.Mesh(new THREE.CylinderGeometry(w * 0.48, w * 0.54, h, 12), mat)
+          : new THREE.Mesh(
+            new THREE.BoxGeometry(w, h, d),
+            facade ? [facade, facade, mat, mat, facade, facade] : mat,
+          );
         tower.position.set(bx, h / 2, bz);
         group.add(tower);
-        const roof = new THREE.Mesh(
-          new THREE.BoxGeometry(w + 0.6, 0.5, d + 0.6),
-          isShopRow
-            ? shopRoofMats[Math.floor(hash2(bx + 9, bz + 4) * shopRoofMats.length) % shopRoofMats.length]
-            : roofMat,
-        );
+        const roof = isDrum
+          ? new THREE.Mesh(
+            new THREE.CylinderGeometry(w * 0.54 + 0.3, w * 0.54 + 0.3, 0.5, 12),
+            isShopRow
+              ? shopRoofMats[Math.floor(hash2(bx + 9, bz + 4) * shopRoofMats.length) % shopRoofMats.length]
+              : roofMat,
+          )
+          : new THREE.Mesh(
+            new THREE.BoxGeometry(w + 0.6, 0.5, d + 0.6),
+            isShopRow
+              ? shopRoofMats[Math.floor(hash2(bx + 9, bz + 4) * shopRoofMats.length) % shopRoofMats.length]
+              : roofMat,
+          );
         roof.position.set(bx, h + 0.25, bz);
         group.add(roof);
         buildings.push({ x: bx, z: bz, hw: w / 2, hd: d / 2, h });
         // A coloured parapet cap on the roof edge, so towers are not bare
         // boxes: the accent colour is keyed off the tower's position.
         const accent = accentMats[Math.floor(hash2(bx, bz) * accentMats.length) % accentMats.length];
-        const cap = new THREE.Mesh(new THREE.BoxGeometry(w + 0.7, 0.7, d + 0.7), accent);
+        const cap = isDrum
+          ? new THREE.Mesh(new THREE.CylinderGeometry(w * 0.54 + 0.35, w * 0.54 + 0.35, 0.7, 12), accent)
+          : new THREE.Mesh(new THREE.BoxGeometry(w + 0.7, 0.7, d + 0.7), accent);
         cap.position.set(bx, h + 0.7, bz);
         group.add(cap);
         // A stepped crown on tall towers: a smaller box set back on the
@@ -390,7 +505,7 @@ export function buildCity(scene, theme, seed, textures) {
         // art-deco curved corners of the photographed facades — so the
         // roofline varies in shape, not just in height.
         if (!isShopRow && h > 17) {
-          if (hash2(bx + 61, bz + 17) > 0.5) {
+          if (isDrum || hash2(bx + 61, bz + 17) > 0.5) {
             const drum = new THREE.Mesh(
               new THREE.CylinderGeometry(w * 0.28, w * 0.33, 2.6, 10),
               tintMats[Math.floor(hash2(bx + 21, bz + 3) * tintMats.length) % tintMats.length],
@@ -469,7 +584,11 @@ export function buildCity(scene, theme, seed, textures) {
         // are smaller now (1.5 x 1.2) and shops skip the upper-floor grid
         // for their glass front, so facades read as varied lights, not a
         // grid of big squares.
-        const floors = isShopRow ? 1 : Math.max(1, Math.floor(h / 3.2));
+        // Builder #11: drum towers wear no window grid — their curved wall
+        // is not where the box-face window positions land, so the grid
+        // would float in the air beside them. Drums read through their
+        // tint, neon strip and drum crown instead.
+        const floors = isDrum ? 0 : (isShopRow ? 1 : Math.max(1, Math.floor(h / 3.2)));
         const cols = Math.max(1, Math.floor(w / 4));
         const colsZ = Math.max(1, Math.floor(d / 4));
         const faces = [
@@ -506,6 +625,44 @@ export function buildCity(scene, theme, seed, textures) {
           group.add(sign);
           neonCount += 1;
         }
+        // Casino Row: a big lit sign on the district's tallest tower, so
+        // the neon district reads from the street — and a second vertical
+        // strip, so the casino towers carry more light than any other block.
+        if (isCasino) {
+          const signCanvas = document.createElement('canvas');
+          signCanvas.width = 256;
+          signCanvas.height = 96;
+          const sctx = signCanvas.getContext('2d');
+          sctx.fillStyle = '#1a0533';
+          sctx.fillRect(0, 0, 256, 96);
+          sctx.strokeStyle = '#ffd94a';
+          sctx.lineWidth = 5;
+          sctx.strokeRect(4, 4, 248, 88);
+          sctx.textAlign = 'center';
+          sctx.shadowColor = '#ff2a6a';
+          sctx.shadowBlur = 14;
+          sctx.fillStyle = '#ffffff';
+          sctx.font = '900 44px Arial, sans-serif';
+          sctx.fillText('CASINO', 128, 50);
+          sctx.shadowBlur = 0;
+          sctx.fillStyle = '#ffd94a';
+          sctx.font = '700 20px Arial, sans-serif';
+          sctx.fillText('VICE ROYALE', 128, 80);
+          const signTex = new THREE.CanvasTexture(signCanvas);
+          signTex.colorSpace = THREE.SRGBColorSpace;
+          const casinoSign = new THREE.Mesh(
+            new THREE.PlaneGeometry(16, 6),
+            new THREE.MeshBasicMaterial({ map: signTex, toneMapped: false }),
+          );
+          casinoSign.position.set(bx, h * 0.82, bz + d / 2 + 0.15);
+          group.add(casinoSign);
+          const strip2 = new THREE.Mesh(
+            new THREE.BoxGeometry(0.35, h * 0.85, 0.35),
+            neonMats[Math.floor(hash2(bx + 13, bz + 29) * neonMats.length) % neonMats.length],
+          );
+          strip2.position.set(bx - w / 2 - 0.1, h * 0.5, bz - d / 2 - 0.1);
+          group.add(strip2);
+        }
         if (!isShopRow && h > 15 && hash2(bx + 31, bz + 13) > 0.55) {
           const strip = new THREE.Mesh(
             new THREE.BoxGeometry(0.3, h * 0.7, 0.3),
@@ -522,7 +679,7 @@ export function buildCity(scene, theme, seed, textures) {
   // colour from the palette's window colours (warm amber, cool blue, rose,
   // pale gold), keyed off its position, so the facades sparkle in varied
   // light instead of one flat yellow grid.
-  const winGeo = new THREE.PlaneGeometry(1.5, 1.2);
+  const winGeo = new THREE.PlaneGeometry(1.2, 1.0);
   const winMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
   const windows = new THREE.InstancedMesh(winGeo, winMat, Math.max(1, windowPositions.length));
   const winColors = palette.windowColors || [0xffd98a];
@@ -539,52 +696,11 @@ export function buildCity(scene, theme, seed, textures) {
   if (windows.instanceColor) windows.instanceColor.needsUpdate = true;
   group.add(windows);
 
-  // The beach: a bright sand strip, then the ocean, both east of the last street.
-  // Builder #10: both wear the photographed textures when they loaded — the
-  // sand tiles along the beach, the ocean samples only the right strip of
-  // its render (pure water and foam; the render's diagonal sand bar is
-  // cropped out by offset) and tiles that strip along the shore. Without
-  // textures both fall back to their flat colours exactly as before.
-  let sandTex = null;
-  if (textures && textures.sand) {
-    sandTex = textures.sand.clone();
-    sandTex.needsUpdate = true;
-    sandTex.wrapS = THREE.RepeatWrapping;
-    sandTex.wrapT = THREE.RepeatWrapping;
-    sandTex.repeat.set(2, 12);
-    sandTex.anisotropy = 4;
-  }
-  const sand = new THREE.Mesh(
-    new THREE.PlaneGeometry(CITY.waterX - CITY.beachX + 40, 440),
-    new THREE.MeshStandardMaterial({ color: sandTex ? 0xffffff : (palette.sandTint ?? 0xc9b078), map: sandTex, roughness: 1 }),
-  );
-  sand.rotation.x = -Math.PI / 2;
-  sand.position.set((CITY.beachX + CITY.waterX) / 2 + 8, 0.03, 0);
-  group.add(sand);
-  let oceanTex = null;
-  if (textures && textures.ocean) {
-    oceanTex = textures.ocean.clone();
-    oceanTex.needsUpdate = true;
-    oceanTex.wrapS = THREE.ClampToEdgeWrapping;
-    oceanTex.wrapT = THREE.RepeatWrapping;
-    oceanTex.repeat.set(0.45, 4);
-    oceanTex.offset.set(0.55, 0);
-    oceanTex.anisotropy = 4;
-  }
-  const oceanMat = new THREE.MeshStandardMaterial({
-    color: oceanTex ? 0xffffff : (palette.oceanTint ?? 0x1a5a8a), map: oceanTex, roughness: 0.25, metalness: 0.1, transparent: true, opacity: 0.94,
-  });
-  const ocean = new THREE.Mesh(new THREE.PlaneGeometry(180, 440), oceanMat);
-  ocean.rotation.x = -Math.PI / 2;
-  ocean.position.set(CITY.waterX + 90, 0.04, 0);
-  group.add(ocean);
-  const surf = new THREE.Mesh(
-    new THREE.PlaneGeometry(4, 440),
-    new THREE.MeshBasicMaterial({ color: 0xd8f0ff, transparent: true, opacity: 0.55 }),
-  );
-  surf.rotation.x = -Math.PI / 2;
-  surf.position.set(CITY.waterX - 2, 0.06, 0);
-  group.add(surf);
+  // Builder #11: the sand and the ocean are the rings built at the top of
+  // this function now (beachRing + oceanRing + foamRing, all the way round
+  // the island). What stays here is the dressing: the sun glitter on the
+  // water east toward the low sun, foam lines off the east shore, and the
+  // scalloped sand + foam puffs that curve the east shoreline.
   // Sun glitter: a warm gold path on the water running east toward the low
   // sun, so the ocean points at the sunset instead of lying flat.
   const glitter = new THREE.Mesh(
@@ -625,12 +741,18 @@ export function buildCity(scene, theme, seed, textures) {
     puff.position.set(CITY.waterX + 1 + curve, 0.065, sz + 9);
     group.add(puff);
   }
-  // Beachgoers: a few static figures on the sand (visual only, never in
-  // traffic, never colliding), so the beach reads lived-in from the road.
+  // Beachgoers: a few static figures on the sand ring (visual only, never
+  // in traffic, never colliding), so the beach reads lived-in from the road.
+  // They ring the island by angle, clear of the ferris wheel's patch.
   const beachShirts = [0xff5a7a, 0x37e0ff, 0xffd94a, 0x7dff9a, 0xff8a3d];
-  for (let i = 0; i < 8; i += 1) {
-    const bz2 = -170 + i * 46 + hash2(i * 11, 2) * 10;
-    const bx2 = CITY.beachX + 10 + Math.sin(bz2 * 0.03) * 6 + hash2(i * 4, 9) * 8;
+  const wheelAngle = Math.atan2(-9, 178);
+  for (let i = 0; i < 10; i += 1) {
+    const a = (i / 10) * Math.PI * 2 + 0.35;
+    let da = Math.abs(a - wheelAngle);
+    if (da > Math.PI) da = Math.PI * 2 - da;
+    if (da < 0.35) continue;
+    const bx2 = Math.cos(a) * 186;
+    const bz2 = Math.sin(a) * 186;
     const figure = new THREE.Group();
     const fBody = new THREE.Mesh(
       new THREE.CylinderGeometry(0.26, 0.3, 0.85, 8),
@@ -664,23 +786,33 @@ export function buildCity(scene, theme, seed, textures) {
   function spotPalm(px, pz, lean) {
     palmSpots.push([px, pz, lean, 5.5 + hash2(px + 3, pz + 8) * 3.5]);
   }
-  for (let i = 0; i < 14; i += 1) {
-    const pz = -190 + i * 29 + range(rng, -4, 4);
-    const px = CITY.beachX + 6 + range(rng, 0, 8);
-    spotPalm(px, pz, 0.12);
-  }
-  for (let i = 0; i < 13; i += 1) {
-    spotPalm(158, -174 + i * 29, i % 2 === 0 ? 0.1 : -0.1);
-  }
-  for (let i = 0; i < 7; i += 1) {
-    spotPalm(-168 + i * 52, 156, 0.08);
+  // Builder #11: palms ring the island on both kerbs of the ring boulevard
+  // (inner kerb on land, outer kerb on the sand), so the coastal road is
+  // palm-framed all the way round. A palm is skipped when it would stand
+  // on a street, inside a building, on the wheel's patch or in the docks.
+  const docksAngle = Math.atan2(134, -108);
+  for (let i = 0; i < 34; i += 1) {
+    const a = (i / 34) * Math.PI * 2;
+    for (const rr of [160, 180]) {
+      const px = Math.cos(a) * rr;
+      const pz = Math.sin(a) * rr;
+      let da = Math.abs(a - wheelAngle);
+      if (da > Math.PI) da = Math.PI * 2 - da;
+      if (da < 0.22) continue;
+      let dd = Math.abs(a - docksAngle);
+      if (dd > Math.PI) dd = Math.PI * 2 - dd;
+      if (dd < 0.3) continue;
+      if (isOnRoad(px, pz)) continue;
+      if (hitsBuilding(buildings, px, pz, 2.6)) continue;
+      spotPalm(px, pz, hash2(px, pz) > 0.5 ? 0.12 : -0.12);
+    }
   }
   const streetPalms = [];
   for (let z = -160; z <= 160; z += 32) {
     if (CITY.streets.some((s) => Math.abs(z - s) < 7)) continue;
-    streetPalms.push([136.4, z], [153.6, z]);
+    streetPalms.push([111.4, z], [128.6, z]);
   }
-  for (const street of [29, -29]) {
+  for (const street of [24, -24]) {
     for (let x = -123; x <= 150; x += 34) {
       if (CITY.streets.some((s) => Math.abs(x - s) < 7)) continue;
       streetPalms.push([x, street - 8.6], [x, street + 8.6]);
@@ -752,14 +884,11 @@ export function buildCity(scene, theme, seed, textures) {
   group.add(fronds);
   group.add(nuts);
 
-  // Beach umbrellas: bright cones on poles, spaced down the sand in two
-  // rows on a gentle arc that follows the curved shoreline — none planted
-  // under the ferris wheel, which owns its own patch.
+  // Beach umbrellas: bright cones on poles, ringing the sand in two rows
+  // that follow the curved shoreline — none planted under the ferris wheel,
+  // which owns its own patch.
   const umbrellaCols = [0xff5a7a, 0x37e0ff, 0xffd94a, 0x7dff9a, 0xff8a3d];
-  for (let i = 0; i < 14; i += 1) {
-    const uz = -168 + i * 24;
-    if (Math.abs(uz - -95) < 26 || Math.abs(uz + 12 - -95) < 26) continue;
-    const ux = CITY.beachX + 14 + ((i * 7) % 10) + Math.sin(uz * 0.03) * 6;
+  function addUmbrella(ux, uz, color) {
     const pole = new THREE.Mesh(
       new THREE.CylinderGeometry(0.09, 0.09, 2.6, 6),
       new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.6 }),
@@ -768,35 +897,32 @@ export function buildCity(scene, theme, seed, textures) {
     group.add(pole);
     const top = new THREE.Mesh(
       new THREE.ConeGeometry(2.2, 1.1, 10),
-      new THREE.MeshStandardMaterial({ color: umbrellaCols[i % umbrellaCols.length], roughness: 0.8 }),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.8 }),
     );
     top.position.set(ux, 3.0, uz);
     group.add(top);
+  }
+  for (let i = 0; i < 22; i += 1) {
+    const a = (i / 22) * Math.PI * 2 + 0.14;
+    let da = Math.abs(a - wheelAngle);
+    if (da > Math.PI) da = Math.PI * 2 - da;
+    if (da < 0.3) continue;
+    addUmbrella(Math.cos(a) * 186, Math.sin(a) * 186, umbrellaCols[i % umbrellaCols.length]);
     if (i % 2 === 0) {
-      const pole2 = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.09, 0.09, 2.6, 6),
-        new THREE.MeshStandardMaterial({ color: 0xe8e8e8, roughness: 0.6 }),
-      );
-      pole2.position.set(CITY.beachX + 22, 1.3, uz + 12);
-      group.add(pole2);
-      const top2 = new THREE.Mesh(
-        new THREE.ConeGeometry(2.2, 1.1, 10),
-        new THREE.MeshStandardMaterial({ color: umbrellaCols[(i + 2) % umbrellaCols.length], roughness: 0.8 }),
-      );
-      top2.position.set(CITY.beachX + 22, 3.0, uz + 12);
-      group.add(top2);
+      addUmbrella(Math.cos(a + 0.14) * 192, Math.sin(a + 0.14) * 192, umbrellaCols[(i + 2) % umbrellaCols.length]);
     }
   }
   // Beach towels: small bright rectangles on the sand between the umbrellas.
   const towelCols = [0xff5a7a, 0x37e0ff, 0xffd94a, 0x7dff9a];
   for (let i = 0; i < 6; i += 1) {
+    const a = -0.7 + i * 0.28;
     const towel = new THREE.Mesh(
       new THREE.PlaneGeometry(2.6, 1.4),
       new THREE.MeshBasicMaterial({ color: towelCols[i % towelCols.length] }),
     );
     towel.rotation.x = -Math.PI / 2;
     towel.rotation.z = hash2(i * 13, 7) * 1.2;
-    towel.position.set(CITY.beachX + 8 + (i % 3) * 5, 0.05, -140 + i * 52);
+    towel.position.set(Math.cos(a) * 183, 0.05, Math.sin(a) * 183);
     group.add(towel);
   }
 
@@ -859,14 +985,14 @@ export function buildCity(scene, theme, seed, textures) {
   function addBillboard(z, art, spec, glowColor) {
     for (const dz of [-10, 10]) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 12.5, 8), boardPoleMat);
-      pole.position.set(164, 6.25, z + dz);
+      pole.position.set(184, 6.25, z + dz);
       group.add(pole);
     }
     const board = new THREE.Mesh(
       new THREE.BoxGeometry(0.6, 12, 28),
       new THREE.MeshBasicMaterial({ map: paintBoard(art, spec), toneMapped: false }),
     );
-    board.position.set(164, 17, z);
+    board.position.set(184, 17, z);
     group.add(board);
     // The billboard glows: a compact additive halo sprite floating just
     // in front of the board, and one real point light spilling neon onto
@@ -879,11 +1005,11 @@ export function buildCity(scene, theme, seed, textures) {
       map: makeGlowTexture(), color: glowColor, transparent: true, opacity: 0.5,
       blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
     }));
-    glow.position.set(162.5, 17, z);
+    glow.position.set(182.5, 17, z);
     glow.scale.set(52, 40, 1);
     group.add(glow);
     const light = new THREE.PointLight(glowColor, 80, 80, 1.6);
-    light.position.set(160, 16, z);
+    light.position.set(180, 16, z);
     group.add(light);
   }
   addBillboard(-58, textures && textures.billboardVice ? textures.billboardVice.image : null, {
@@ -896,10 +1022,10 @@ export function buildCity(scene, theme, seed, textures) {
   }, 0xff5ad8);
 
   // The ferris wheel on the beach: a glowing rim, four spokes and eight
-  // coloured gondolas, a landmark on the horizon. It stands north of the
-  // billboard now, clear of it in the driving frames, close enough to the
-  // beachfront streets to read instead of being lost at the far north end
-  // of the sand.
+  // coloured gondolas, a landmark on the horizon. Builder #11: it stands
+  // at the end of the beachfront street, dead ahead in the cover and
+  // driving frames and clear of the downtown skyline from the title
+  // camera — the north beach hid it behind the towers.
   const wheel = new THREE.Group();
   const rim = new THREE.Mesh(
     new THREE.TorusGeometry(18, 0.6, 8, 44),
@@ -927,7 +1053,7 @@ export function buildCity(scene, theme, seed, textures) {
     new THREE.MeshBasicMaterial({ color: 0xff5a7a }),
   );
   wheel.add(hub);
-  wheel.position.set(186, 22, -95);
+  wheel.position.set(178, 22, -9);
   group.add(wheel);
   // A soft gold halo over the wheel's hub, so the landmark shimmers at
   // dusk instead of sitting flat against the sky.
@@ -935,7 +1061,7 @@ export function buildCity(scene, theme, seed, textures) {
     map: makeGlowTexture(), color: 0xffd94a, transparent: true, opacity: 0.45,
     blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
   }));
-  wheelGlow.position.set(186, 22, -95);
+  wheelGlow.position.set(178, 22, -9);
   wheelGlow.scale.set(70, 70, 1);
   group.add(wheelGlow);
   for (const dz of [-9, 9]) {
@@ -943,7 +1069,7 @@ export function buildCity(scene, theme, seed, textures) {
       new THREE.BoxGeometry(1.4, 23, 1.4),
       new THREE.MeshStandardMaterial({ color: 0x3a3a44, roughness: 0.7, metalness: 0.5 }),
     );
-    leg.position.set(186, 11.5, -95 + dz);
+    leg.position.set(178, 11.5, -9 + dz);
     leg.rotation.x = dz > 0 ? -0.35 : 0.35;
     group.add(leg);
   }
@@ -999,8 +1125,8 @@ export function buildCity(scene, theme, seed, textures) {
   // The Docks, south-west: stacked containers and crates by the water.
   const containerCols = [0x2a9a6a, 0xd84a2a, 0x2a6ad8, 0xe8b93a, 0xd83a7a];
   for (let i = 0; i < 10; i += 1) {
-    const cx = -160 + (i % 5) * 9;
-    const cz = 128 + Math.floor(i / 5) * 9;
+    const cx = -108 + (i % 5) * 9;
+    const cz = 130 + Math.floor(i / 5) * 8;
     const cont = new THREE.Mesh(
       new THREE.BoxGeometry(8, 3.4, 3.6),
       new THREE.MeshStandardMaterial({ color: containerCols[i % containerCols.length], roughness: 0.8 }),
@@ -1017,15 +1143,74 @@ export function buildCity(scene, theme, seed, textures) {
     new THREE.BoxGeometry(18, 8, 14),
     new THREE.MeshStandardMaterial({ color: 0x4a8a6a, roughness: 0.85 }),
   );
-  hideout.position.set(29, 4, -163);
+  hideout.position.set(24, 4, -148);
   group.add(hideout);
   const awning = new THREE.Mesh(
     new THREE.BoxGeometry(10, 0.5, 5),
     new THREE.MeshStandardMaterial({ color: 0x2aff66, roughness: 0.7 }),
   );
-  awning.position.set(29, 4.6, -154.5);
+  awning.position.set(24, 4.6, -139.5);
   group.add(awning);
-  buildings.push({ x: 29, z: -163, hw: 9, hd: 7, h: 8 });
+  buildings.push({ x: 24, z: -148, hw: 9, hd: 7, h: 8 });
 
-  return { group, buildings, lampBulbMat, oceanMat };
+  // The VSPD helicopter: a black-and-white chopper with a spinning main
+  // rotor, a tail rotor and a searchlight cone, circling over the player
+  // (the world moves it every step from the clock, so it is always above
+  // the chase). It is built here, animated by world.js.
+  const helicopter = new THREE.Group();
+  const heliBodyMat = new THREE.MeshStandardMaterial({ color: 0x1a1a22, roughness: 0.4, metalness: 0.6 });
+  const heliBody = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.6, 2.0), heliBodyMat);
+  heliBody.position.y = 0;
+  helicopter.add(heliBody);
+  const heliNose = new THREE.Mesh(
+    new THREE.BoxGeometry(1.4, 1.1, 1.7),
+    new THREE.MeshStandardMaterial({ color: 0x18202e, roughness: 0.15, metalness: 0.7 }),
+  );
+  heliNose.position.set(2.6, -0.1, 0);
+  helicopter.add(heliNose);
+  const heliTail = new THREE.Mesh(new THREE.BoxGeometry(4.6, 0.5, 0.5), heliBodyMat);
+  heliTail.position.set(-4.0, 0.3, 0);
+  helicopter.add(heliTail);
+  const heliFin = new THREE.Mesh(new THREE.BoxGeometry(0.4, 1.6, 0.3), heliBodyMat);
+  heliFin.position.set(-6.1, 0.8, 0);
+  helicopter.add(heliFin);
+  const heliSkidMat = new THREE.MeshStandardMaterial({ color: 0x3a3a44, roughness: 0.7, metalness: 0.5 });
+  for (const dz of [-0.9, 0.9]) {
+    const skid = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.12, 0.12), heliSkidMat);
+    skid.position.set(0, -1.1, dz);
+    helicopter.add(skid);
+  }
+  const heliRotor = new THREE.Group();
+  const rotorMat = new THREE.MeshStandardMaterial({ color: 0x22222c, roughness: 0.6, metalness: 0.4 });
+  for (const a of [0, Math.PI / 2]) {
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.08, 11), rotorMat);
+    blade.rotation.y = a;
+    heliRotor.add(blade);
+  }
+  heliRotor.position.y = 1.1;
+  helicopter.add(heliRotor);
+  const heliTailRotor = new THREE.Group();
+  for (const a of [0, Math.PI / 2]) {
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.2, 0.12), rotorMat);
+    blade.rotation.z = a;
+    heliTailRotor.add(blade);
+  }
+  heliTailRotor.position.set(-6.1, 0.8, 0.35);
+  helicopter.add(heliTailRotor);
+  const heliLightBar = new THREE.Mesh(
+    new THREE.BoxGeometry(0.7, 0.25, 1.4),
+    new THREE.MeshBasicMaterial({ color: 0xff4040, toneMapped: false }),
+  );
+  heliLightBar.position.set(0.6, 0.95, 0);
+  helicopter.add(heliLightBar);
+  const heliSpot = new THREE.Mesh(
+    new THREE.ConeGeometry(3.2, 26, 12, 1, true),
+    new THREE.MeshBasicMaterial({ color: 0xfff3c0, transparent: true, opacity: 0.10, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide }),
+  );
+  heliSpot.position.set(1.5, -14, 0);
+  helicopter.add(heliSpot);
+  helicopter.visible = false;
+  group.add(helicopter);
+
+  return { group, buildings, lampBulbMat, oceanMat, helicopter, heliRotor, heliTailRotor };
 }

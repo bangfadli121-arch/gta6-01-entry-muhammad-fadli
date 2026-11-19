@@ -119,7 +119,7 @@ export const WANTED = {
   bustDistance: 3.2, bustSeconds: 2.5,
 };
 
-// The story: three chained missions from Mara Kade of the Shore Kings.
+// The story: four chained missions from Mara Kade of the Shore Kings.
 export const MISSIONS = [
   {
     id: 1, title: 'THE PICKUP', giver: 'MARA KADE',
@@ -147,6 +147,32 @@ export const MISSIONS = [
     ],
     reward: 1200,
   },
+  // Builder #18 (Hilman-style): a pink-package collection job — ten pink
+  // packages stashed on the streets, a live PACKAGES n/10 counter in the
+  // objective card, and the yellow marker always points at the nearest one.
+  {
+    id: 4, title: 'PINK PACKAGES', giver: 'MARA KADE',
+    intro: 'Dario left ten pink packages around Vice Shores. Collect them all — before the VSPD does.',
+    steps: [
+      { type: 'collect', label: 'Collect the pink packages', sub: 'PACKAGES 0/10', total: 10 },
+    ],
+    reward: 1000,
+  },
+];
+
+// Where the ten pink packages hide: all on street centrelines, mid-block,
+// so every one is reachable on foot or by car and none sits inside a building.
+export const PACKAGE_SPOTS = [
+  { x: 72, z: -96 },
+  { x: -96, z: -24 },
+  { x: 24, z: 96 },
+  { x: -24, z: -96 },
+  { x: 120, z: -48 },
+  { x: -120, z: 48 },
+  { x: 48, z: 120 },
+  { x: -48, z: -120 },
+  { x: 96, z: -72 },
+  { x: -72, z: 72 },
 ];
 
 export const HIDEOUT = { x: 24, z: -148 };

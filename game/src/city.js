@@ -644,9 +644,17 @@ export function buildCity(scene, theme, seed, textures) {
         // board — centre y 17, bottom edge y 11 — shows whole over a
         // low roof from the low chase camera.
         const inViceSightline = bx >= 80 && bx <= 180 && bz >= -64 && bz <= -28;
+        // Builder #19 — the FLAMINGO board's sightline (probe): the
+        // (59,-37) tower, 18 tall at 52 units, stood dead on the line
+        // from the cover camera to the board at (120,-52) and hid all
+        // but a sliver of it. The whole north-side row in the board's
+        // sightline (bx 30..130, bz -44..-30) is capped at 5, so the
+        // board shows whole over low shops.
+        const inFlamSightline = bx >= 30 && bx <= 130 && bz >= -44 && bz <= -30;
         const h = inCoverCorridor
           ? Math.min(h0, nearCoverCamera ? 5 : 8)
-          : inBoardSightline ? Math.min(h0, 7)
+          : inFlamSightline ? Math.min(h0, 5)
+            : inBoardSightline ? Math.min(h0, 7)
             : inViceSightline ? Math.min(h0, 8)
             : byCoverStreetNorth ? Math.min(h0, 18) : h0;
         // Builder #14c — MOVE THE HOUSE OFF THE ROAD (fadli: "knp ada rmh
@@ -675,6 +683,10 @@ export function buildCity(scene, theme, seed, textures) {
         // accepted, the layout is supposed to change; everything the
         // shots depend on is positional (corridor caps, remap, palms).
         if (!isCasino && Math.abs(bx + bz - DIAG_C) < 26) continue;
+        // Builder #19 — the Vice Royale casino moved to the causeway
+        // (56,2): the (59,11) tower slot of the (48,0) block would grow
+        // through its south-east corner, so no tower is built there.
+        if (Math.abs(bx - 56) < 13 && Math.abs(bz - 2) < 13) continue;
         const mat = isCasino
           ? tintMats[Math.floor(hash2(bx + 91, bz + 7) * tintMats.length) % tintMats.length]
           : isShopRow
@@ -1117,9 +1129,9 @@ export function buildCity(scene, theme, seed, textures) {
   // the same unit the towers do; the entrance fronts the z=-72 street
   // and the title camera sees its south + west faces. Three stepped
   // stucco tiers (violet, gold cornices), a rooftop pylon carrying the
-  // name in REAL 3D block letters (a 3x5 pixel font, one cube per lit
-  // pixel, proud of a dark backing frame — readable as letters from the
-  // street and solid geometry from the side), a cantilevered gold
+  // name painted on canvas on its west face (Fix #19: the 3D block
+  // letters read sheared from the cover camera, a flat canvas word
+  // reads clean), a cantilevered gold
   // marquee with a painted VICE ROYALE fascia, lit glass entrances,
   // neon corner strips and a ring of coloured bulbs. Windows and
   // balconies join the same instanced draws as every other tower, and
@@ -1128,7 +1140,12 @@ export function buildCity(scene, theme, seed, textures) {
   // title camera this stands in front of the old flat CASINO sign on
   // the (85,-107) tower — that sign is occluded now, replaced by the
   // bigger 3D letters above it.
-  const CAS = { x: 85, z: -85 };
+  // Builder #19 — MOVED to the causeway (56,2), south of the z=-24
+  // avenue: the RIGHT side of the chase frame when driving east into
+  // the sun. Its sign now faces WEST (toward the approaching camera,
+  // nearly frontal in the cover) and its entrance + marquee face
+  // NORTH, onto the avenue itself.
+  const CAS = { x: 56, z: 2 };
   const casStucco = new THREE.MeshStandardMaterial({ map: stuccoTex, color: 0x7a2a9a, roughness: 0.95, metalness: 0 });
   const casStuccoMid = new THREE.MeshStandardMaterial({ map: stuccoTex, color: 0x9a3ab0, roughness: 0.95, metalness: 0 });
   const casGold = new THREE.MeshStandardMaterial({ color: 0xffd94a, roughness: 0.35, metalness: 0.75 });
@@ -1184,8 +1201,8 @@ export function buildCity(scene, theme, seed, textures) {
         const wy = yBase + 2.2 + f * 3.2;
         if (wy > yTop - 1) continue;
         for (let c = 0; c < run; c += 1) {
-          if (skip && skip(face.rot, f)) continue;
-          if (hash2(CAS.x + c * 13 + f * 7, CAS.z + face.rot * 10 + wy) > 0.65) continue;
+          if (skip && skip(face.rot, f, c)) continue;
+          if (hash2(CAS.x + c * 13 + f * 7, CAS.z + face.rot * 10 + wy) > 0.45) continue;
           if (face.axis === 'x') windowPositions.push([CAS.x - fw / 2 + 2.2 + c * 4, wy, face.at, face.rot]);
           else windowPositions.push([face.at, wy, CAS.z - fd / 2 + 2.2 + c * 4, face.rot]);
         }
@@ -1193,8 +1210,20 @@ export function buildCity(scene, theme, seed, textures) {
     }
   };
   // South ground floors = entrance, west ground floor = side door.
-  casWin(14, 14, 0, 18, (rot, f) => (rot === 0 && f < 2) || (rot === -Math.PI / 2 && f === 0));
+  // Fix #19: also skip the west window directly above the side door
+  // (f=1, c=1) — the new west canopy goes there instead.
+  casWin(14, 14, 0, 18, (rot, f, c) => (rot === Math.PI && f < 2) || (rot === -Math.PI / 2 && f === 0) || (rot === -Math.PI / 2 && f === 1 && c === 1));
   casWin(11, 11, 18, 26);
+  // Fix #19 — the west face read as one flat purple slab in the cover:
+  // the hash gate skipped the whole y8.6 row and the whole y15 row.
+  // Force lit windows into the empty rows (same instanced 3D units as
+  // every other window), plus two more on the mid tier's west face.
+  for (const [wy, wz] of [[8.6, -2.8], [8.6, 1.2], [8.6, 5.2], [15.0, -2.8], [15.0, 5.2]]) {
+    windowPositions.push([CAS.x - 7 - 0.06, wy, wz, -Math.PI / 2]);
+  }
+  for (const [wy, wz] of [[20.2, 2.7], [23.4, -1.3]]) {
+    windowPositions.push([CAS.x - 5.5 - 0.06, wy, wz, -Math.PI / 2]);
+  }
   // Balconies on the east, west and north faces of the base tier and
   // the north face of the mid tier (the south face wears the marquee).
   pushBalcony(CAS.x + 7 + 0.65, 12, CAS.z - 3.5, Math.PI / 2, 1, 0);
@@ -1209,18 +1238,18 @@ export function buildCity(scene, theme, seed, textures) {
   // a narrower glass door on the west face.
   const casGlassMat = new THREE.MeshStandardMaterial({ color: 0x9fd4e8, roughness: 0.15, metalness: 0.4 });
   const casGlass = new THREE.Mesh(new THREE.BoxGeometry(6, 4.4, 0.5), casGlassMat);
-  casGlass.position.set(CAS.x, 2.6, CAS.z + 7 + 0.1);
+  casGlass.position.set(CAS.x, 2.6, CAS.z - 7 - 0.1);
   group.add(casGlass);
   for (const dx of [-3.1, 3.1]) {
     const stile = new THREE.Mesh(new THREE.BoxGeometry(0.35, 4.8, 0.6), casGold);
-    stile.position.set(CAS.x + dx, 2.4, CAS.z + 7 + 0.15);
+    stile.position.set(CAS.x + dx, 2.4, CAS.z - 7 - 0.15);
     group.add(stile);
   }
   const casHeader = new THREE.Mesh(new THREE.BoxGeometry(6.6, 0.5, 0.6), casGold);
-  casHeader.position.set(CAS.x, 4.9, CAS.z + 7 + 0.15);
+  casHeader.position.set(CAS.x, 4.9, CAS.z - 7 - 0.15);
   group.add(casHeader);
   const casMull = new THREE.Mesh(new THREE.BoxGeometry(0.18, 4.4, 0.55), casDark);
-  casMull.position.set(CAS.x, 2.6, CAS.z + 7 + 0.12);
+  casMull.position.set(CAS.x, 2.6, CAS.z - 7 - 0.12);
   group.add(casMull);
   const casGlassW = new THREE.Mesh(new THREE.BoxGeometry(0.5, 4.0, 3.2), casGlassMat);
   casGlassW.position.set(CAS.x - 7 - 0.1, 2.4, CAS.z);
@@ -1231,7 +1260,7 @@ export function buildCity(scene, theme, seed, textures) {
   // edge and two diagonal struts tying it back to the wall, the way the
   // billboard cabinets are braced.
   const marqSlab = new THREE.Mesh(new THREE.BoxGeometry(10, 0.5, 3.6), casDark);
-  marqSlab.position.set(CAS.x, 6.2, CAS.z + 7 + 1.8);
+  marqSlab.position.set(CAS.x, 6.2, CAS.z - 7 - 1.8);
   group.add(marqSlab);
   const marqCanvas = document.createElement('canvas');
   marqCanvas.width = 512;
@@ -1261,17 +1290,18 @@ export function buildCity(scene, theme, seed, textures) {
       new THREE.MeshStandardMaterial({ color: 0x1a0533, roughness: 0.6 }),
       new THREE.MeshStandardMaterial({ color: 0x1a0533, roughness: 0.6 }),
       new THREE.MeshStandardMaterial({ color: 0x1a0533, roughness: 0.6 }),
-      // South face (+z) carries the painted fascia; the rest stay dark.
-      new THREE.MeshBasicMaterial({ map: marqTex, toneMapped: false }),
+      // North face (-z, onto the avenue) carries the painted fascia;
+      // the rest stay dark.
       new THREE.MeshStandardMaterial({ color: 0x1a0533, roughness: 0.6 }),
+      new THREE.MeshBasicMaterial({ map: marqTex, toneMapped: false }),
     ],
   );
-  marqFace.position.set(CAS.x, 5.35, CAS.z + 7 + 3.5);
+  marqFace.position.set(CAS.x, 5.35, CAS.z - 7 - 3.5);
   group.add(marqFace);
   for (const dx of [-4, 4]) {
     const strut = new THREE.Mesh(new THREE.BoxGeometry(0.3, 3.8, 0.3), casGold);
-    strut.position.set(CAS.x + dx, 5.1, CAS.z + 7 + 1.55);
-    strut.rotation.x = 1.04;
+    strut.position.set(CAS.x + dx, 5.1, CAS.z - 7 - 1.55);
+    strut.rotation.x = -1.04;
     group.add(strut);
   }
   // Vertical neon strips on the south face's two corners.
@@ -1279,9 +1309,46 @@ export function buildCity(scene, theme, seed, textures) {
   const casNeonCyan = new THREE.MeshBasicMaterial({ color: 0x00e5ff, toneMapped: false });
   for (const [sx, mat] of [[-1, casNeonPink], [1, casNeonCyan]]) {
     const strip = new THREE.Mesh(new THREE.BoxGeometry(0.35, 17, 0.35), mat);
-    strip.position.set(CAS.x + sx * (7 + 0.2), 9, CAS.z + 7 + 0.2);
+    strip.position.set(CAS.x + sx * (7 + 0.2), 9, CAS.z - 7 - 0.2);
     group.add(strip);
   }
+  // Fix #19 — the same vertical neon strips framing the WEST face's two
+  // corners (the cover's big flat wall), pink north / cyan south, proud
+  // of the wall like the south pair.
+  for (const [wz, mat] of [[CAS.z - 7 - 0.2, casNeonPink], [CAS.z + 7 + 0.2, casNeonCyan]]) {
+    const stripW = new THREE.Mesh(new THREE.BoxGeometry(0.35, 17, 0.35), mat);
+    stripW.position.set(CAS.x - 7 - 0.2, 9, wz);
+    group.add(stripW);
+  }
+  // Fix #19 — canopy over the west side door (ground floor, west face),
+  // echoing the north marquee: a dark slab cantilevered over the door,
+  // a gold front lip, two diagonal struts back to the wall and three
+  // bulbs under the lip. It sits where the skipped y5.4 window was, so
+  // it never cuts through a window.
+  const casCanopy = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.35, 5.2), casDark);
+  casCanopy.position.set(CAS.x - 7 - 1.3, 5.15, CAS.z);
+  group.add(casCanopy);
+  const casCanopyLip = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.5, 5.2), casGold);
+  casCanopyLip.position.set(CAS.x - 7 - 2.6, 5.0, CAS.z);
+  group.add(casCanopyLip);
+  for (const dz of [-2, 2]) {
+    const cstrut = new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.2, 0.25), casGold);
+    cstrut.position.set(CAS.x - 7 - 0.9, 4.5, CAS.z + dz);
+    cstrut.rotation.z = 1.0;
+    group.add(cstrut);
+    const cbulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 8, 6),
+      new THREE.MeshBasicMaterial({ color: dz < 0 ? 0xff2a7a : 0x00e5ff, toneMapped: false }),
+    );
+    cbulb.position.set(CAS.x - 7 - 2.5, 4.85, CAS.z + dz);
+    group.add(cbulb);
+  }
+  const cbulbMid = new THREE.Mesh(
+    new THREE.SphereGeometry(0.28, 8, 6),
+    new THREE.MeshBasicMaterial({ color: 0xffe14a, toneMapped: false }),
+  );
+  cbulbMid.position.set(CAS.x - 7 - 2.5, 4.85, CAS.z);
+  group.add(cbulbMid);
   // Coloured bulbs: a ring on the base cornice + a row under the
   // marquee lip, one instanced draw with per-bulb colours.
   const bulbSpots = [];
@@ -1291,7 +1358,7 @@ export function buildCity(scene, theme, seed, textures) {
       bulbSpots.push([CAS.x + e, 18.9, CAS.z + o]);
     }
   }
-  for (let bx2 = -4; bx2 <= 4; bx2 += 1) bulbSpots.push([CAS.x + bx2, 4.72, CAS.z + 7 + 3.62]);
+  for (let bx2 = -4; bx2 <= 4; bx2 += 1) bulbSpots.push([CAS.x + bx2, 4.72, CAS.z - 7 - 3.62]);
   const bulbCols = [0xff2a7a, 0x00e5ff, 0xffe14a, 0x7dff9a];
   const casTmpColor = new THREE.Color();
   const bulbs = new THREE.InstancedMesh(
@@ -1317,9 +1384,9 @@ export function buildCity(scene, theme, seed, textures) {
   // sign read "CA[I]O" with a fake mirrored N. The mast sits at the
   // panels' crossing corner, 0.15 behind both panel backs, so no letter
   // is ever crossed), a top frame, a gold beacon sphere with a red tip,
-  // and the name in solid 3D block letters on the south face.
-  // One cube per lit pixel of a 3x5 font, proud of a dark backing panel
-  // inside a gold frame — geometry from every angle.
+  // and the name painted on canvas on the west face (Fix #19: the 3D
+  // block letters read sheared from the cover camera, a flat canvas
+  // word reads clean — same technique as the marquee fascia).
   const casMast = new THREE.Mesh(new THREE.BoxGeometry(1.0, 7.5, 1.0), casGold);
   casMast.position.set(CAS.x + 0.3, 30.7 + 3.75, CAS.z - 0.3);
   group.add(casMast);
@@ -1338,81 +1405,98 @@ export function buildCity(scene, theme, seed, textures) {
   );
   beaconTip.position.set(CAS.x, 39.9, CAS.z);
   group.add(beaconTip);
-  // South panel + frame only. (Builder #18, second look: a matching
+  // West panel + frame only. (Builder #18, second look: a matching
   // west panel was tried and DELETED — both panels are 12.8 long on
   // perpendicular faces, so the west panel's south end stuck 6 units
   // past the south panel and read as a dark bar crossing the sign
-  // between the S and the I. One big south sign; the west face keeps
-  // its neon strips, bulbs and glass door instead.)
-  const casPanelS = new THREE.Mesh(new THREE.BoxGeometry(12.8, 3.3, 0.5), casDark);
-  casPanelS.position.set(CAS.x, 33.4, CAS.z + 0.3);
-  group.add(casPanelS);
+  // between the S and the I. Builder #19 flips it: the sign IS the
+  // west panel now, facing the chase camera down the causeway; the
+  // north face keeps the marquee and the entrance instead.)
+  // Fix #19 — the cover camera sits NORTH-west of the casino (not due
+  // west), so the flat west-facing sign read sheared ("CHETYN") at the
+  // top-right frame corner. Yawing the sign -24 deg was tried first
+  // and REVERTED: the yaw put the sign's south end ~5 units nearer the
+  // camera, and with the camera pitched up the word's baseline tilted
+  // ~15 deg in the frame (verified by projecting the letter cubes) —
+  // differently broken, not fixed. The panel stays facing due west
+  // (level baseline, ~0.5% foreshortening), and the 3x5 block-letter
+  // cubes are replaced by a painted canvas face instead: the cubes'
+  // bottom faces, seen from 30 deg below, muddled the pixel font's
+  // diagonals (S read as E, N as H), while a flat canvas word reads
+  // clean at the same angle — the FLAMINGO FM board proves it in this
+  // very frame. The group stays (rotation 0) so the panel/frame/legs
+  // keep their exact original world positions.
+  const casSignGroup = new THREE.Group();
+  casSignGroup.position.set(CAS.x + 0.3, 33.4, CAS.z - 0.3);
+  casSignGroup.rotation.y = 0;
+  group.add(casSignGroup);
+  // Local coords below are world coords minus the pivot (56.3, 33.4, 1.7).
+  const casPanelS = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3.3, 12.8), casDark);
+  casPanelS.position.set(-0.6, 0, 0.3);
+  casSignGroup.add(casPanelS);
   // The gold frame rides PROUD of the panel front (0.3 out), so the
   // border reads as a border — flush at the panel's centre plane it
   // was embedded inside the 0.5-thick panel and invisible.
-  for (const [fy, fh] of [[35.2, 0.35], [31.6, 0.35]]) {
-    const railS = new THREE.Mesh(new THREE.BoxGeometry(13.4, fh, 0.35), casGold);
-    railS.position.set(CAS.x, fy, CAS.z + 0.6);
-    group.add(railS);
+  for (const [fy, fh] of [[1.8, 0.35], [-1.8, 0.35]]) {
+    const railS = new THREE.Mesh(new THREE.BoxGeometry(0.35, fh, 13.4), casGold);
+    railS.position.set(-0.9, fy, 0.3);
+    casSignGroup.add(railS);
   }
-  for (const fx of [-6.55, 6.55]) {
+  for (const fx of [-6.25, 6.85]) {
     const stileS = new THREE.Mesh(new THREE.BoxGeometry(0.35, 3.6, 0.35), casGold);
-    stileS.position.set(CAS.x + fx, 33.4, CAS.z + 0.6);
-    group.add(stileS);
+    stileS.position.set(-0.9, 0, fx);
+    casSignGroup.add(stileS);
   }
   // Short legs tying the sign's bottom rail down to the crown cap, so
   // the sign never floats above the roof.
-  for (const lx3 of [-3.5, 3.5]) {
+  for (const lx3 of [-3.2, 3.8]) {
     const legS = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.9, 0.4), casGold);
-    legS.position.set(CAS.x + lx3, 31.15, CAS.z + 0.6);
-    group.add(legS);
+    legS.position.set(-0.9, -2.25, lx3);
+    casSignGroup.add(legS);
   }
-  const CASINO_FONT = {
-    C: ['111', '100', '100', '100', '111'],
-    A: ['010', '101', '111', '101', '101'],
-    S: ['011', '100', '010', '001', '110'],
-    I: ['111', '010', '010', '010', '111'],
-    N: ['101', '111', '011', '101', '101'],
-    O: ['111', '101', '101', '101', '111'],
-  };
-  const letterCubes = [];
-  'CASINO'.split('').forEach((ch, i) => {
-    const rows = CASINO_FONT[ch];
-    rows.forEach((row, r) => {
-      for (let col = 0; col < 3; col += 1) {
-        if (row[col] !== '1') continue;
-        // Sign-local: lx along the sign (left to right), ly up.
-        const lx = -6.0 + i * 2.0 + 0.25 + col * 0.5;
-        const ly = 34.4 - r * 0.5;
-        letterCubes.push([CAS.x + lx, ly, CAS.z + 0.8]);
-      }
-    });
-  });
-  const letters = new THREE.InstancedMesh(
-    new THREE.BoxGeometry(0.5, 0.5, 0.5),
-    new THREE.MeshBasicMaterial({ color: 0xff2a7a, toneMapped: false }),
-    Math.max(1, letterCubes.length),
+  // Fix #19 — the word itself, painted on canvas like the VICE ROYALE
+  // marquee fascia and the FLAMINGO FM board (both read clean at this
+  // angle): big bold pink CASINO on the panel's own dark colour, so
+  // the face reads as one lit sign instead of 58 separate cubes. The
+  // plane sits 0.1 proud of the panel's west face, inside the gold
+  // frame (the rails/stiles never cross it), facing due west.
+  const casSignCanvas = document.createElement('canvas');
+  casSignCanvas.width = 1024;
+  casSignCanvas.height = 256;
+  const sctx = casSignCanvas.getContext('2d');
+  sctx.fillStyle = '#1a0533';
+  sctx.fillRect(0, 0, 1024, 256);
+  sctx.textAlign = 'center';
+  sctx.textBaseline = 'middle';
+  sctx.shadowColor = '#ff2a7a';
+  sctx.shadowBlur = 22;
+  sctx.fillStyle = '#ff2a7a';
+  sctx.font = '900 185px Arial, sans-serif';
+  sctx.fillText('CASINO', 512, 134);
+  sctx.shadowBlur = 0;
+  sctx.fillStyle = '#ff7ab0';
+  sctx.font = '900 185px Arial, sans-serif';
+  sctx.fillText('CASINO', 512, 134);
+  const casSignTex = new THREE.CanvasTexture(casSignCanvas);
+  casSignTex.colorSpace = THREE.SRGBColorSpace;
+  const casSignFace = new THREE.Mesh(
+    new THREE.PlaneGeometry(11.6, 2.9),
+    new THREE.MeshBasicMaterial({ map: casSignTex, toneMapped: false }),
   );
-  letterCubes.forEach(([lx2, ly2, lz2], i) => {
-    dummy.position.set(lx2, ly2, lz2);
-    dummy.rotation.set(0, 0, 0);
-    dummy.scale.set(1, 1, 1);
-    dummy.updateMatrix();
-    letters.setMatrixAt(i, dummy.matrix);
-  });
-  letters.count = letterCubes.length;
-  group.add(letters);
+  casSignFace.position.set(-0.95, 0, 0.3);
+  casSignFace.rotation.y = -Math.PI / 2;
+  casSignGroup.add(casSignFace);
   // A pink halo over the sign + one real point light spilling neon onto
   // the entrance forecourt, the way the billboards light theirs.
   const casGlow = new THREE.Sprite(new THREE.SpriteMaterial({
     map: makeGlowTexture(), color: 0xff2a7a, transparent: true, opacity: 0.25,
     blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
   }));
-  casGlow.position.set(CAS.x, 33.4, CAS.z + 2);
+  casGlow.position.set(CAS.x - 2, 33.4, CAS.z);
   casGlow.scale.set(20, 10, 1);
   group.add(casGlow);
   const casLight = new THREE.PointLight(0xff5a9a, 80, 80, 1.6);
-  casLight.position.set(CAS.x, 6, CAS.z + 10);
+  casLight.position.set(CAS.x, 6, CAS.z - 10);
   group.add(casLight);
   // Register the collision box so the player, palms and props all treat
   // the casino as a real building.
@@ -1748,7 +1832,15 @@ export function buildCity(scene, theme, seed, textures) {
       // street stand in the FLAMINGO board's sightline (probe: crowns at
       // px 1346/1553, fronds across the subtitle) — cut just that pair.
       if (street === 24 && x === 149) continue;
-      streetPalms.push([x, street - 8.6, 0.6], [x, street + 8.6, 0.6]);
+      // Builder #19 — the (13,-15.4) palm stands 5 units from the cover
+      // camera (x~8.5, z=-18): its trunk filled the frame's whole right
+      // side and its crown draped across the top. Cut just that one;
+      // the (47,-15.4) palm still frames the casino's west face.
+      if (street === -24 && x === 13) {
+        streetPalms.push([x, street - 8.6, 0.6]);
+      } else {
+        streetPalms.push([x, street - 8.6, 0.6], [x, street + 8.6, 0.6]);
+      }
     }
   }
   // Builder #15 — DENSE AVENUE PALMS FOR THE COVER (fadli: palem rapat
@@ -2222,7 +2314,7 @@ export function buildCity(scene, theme, seed, textures) {
   // ~28 degrees off the chase axis while the rim's southernmost point
   // only reaches z=15, so no rim arc can cross the lettering again. The
   // board stays in frame (its far end ~px 1470) and still reads whole.
-  addBillboard(188, 44, -Math.PI / 4, 40, 16, 18, textures && textures.billboardFlamingo ? textures.billboardFlamingo.image : null, {
+  addBillboard(120, -52, 0.27, 40, 16, 18, textures && textures.billboardFlamingo ? textures.billboardFlamingo.image : null, {
     panel: [16, 4, 480, 112], title: 'FLAMINGO FM', titleSize: 56, titleY: 76,
     sub: 'NEON NIGHTS · OCEAN DRIVE', subY: 106, tag: 'PINK HORIZON · LIVE', tagY: 210, tagAlign: 'left',
   }, 0xff5ad8);

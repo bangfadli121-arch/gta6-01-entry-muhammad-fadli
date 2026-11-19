@@ -6,7 +6,7 @@
 // /output/dossier.json, the summary the judge reads, with the vendored make.fun
 // library. The game itself is an original open-world crime game: a seeded city
 // to explore on foot and by car, traffic and pedestrians, cars to steal, a
-// wanted level with police who chase, three chained missions, combat, a HUD
+// wanted level with police who chase, four chained missions, combat, a HUD
 // with a minimap, a start screen and a save in localStorage. The shipped look
 // is golden hour over a beach city: a four-band violet-pink-orange-gold sky
 // with the sun low over the ocean at the end of the east streets, a glare

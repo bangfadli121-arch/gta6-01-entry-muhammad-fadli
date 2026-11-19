@@ -1,4 +1,5 @@
-// The screenshot scenes behind ?shot=cover|driving|onfoot|start. Each one plays
+// The screenshot scenes behind ?shot=cover|driving|onfoot|start|casino-a|
+// casino-b|carjack|drift|packages|busted|district. Each one plays
 // the real rules forward from a fresh world for a fixed number of fixed steps,
 // steered by a tiny autopilot (stay on the street, brake for the car ahead),
 // so the frame is what a short game really looks like and the same seed always
@@ -251,6 +252,156 @@ export function stageShot(name, game) {
     // fills the frame's centre), so the photo carries the chase, the
     // wheel and the board clean. The feedback system itself is untouched
     // — it still pops during real play.
+    return { screen: 'play' };
+  }
+  // Builder #18 — CASINO CLOSE-UPS. The casino (85,-85) is hemmed in
+  // by streets 6 units off every face, so a street-level camera is
+  // either too close or behind the neighbouring tower: both close-ups
+  // are staged from open ground with a verified-clear sightline.
+  // casino-a: elevated three-quarter from the south-east, over the
+  // z=-72 street — east + south faces, marquee and pylon together.
+  // casino-b: elevated three-quarter from the south-west, nearly level
+  // with the sign — the big CASINO sign face-on-ish, the west face, the
+  // marquee and the entrance.
+  // (The sign faces south, so both close-ups look at it from the
+  // south side; a due-west camera would show only its edge.)
+  if (name === 'casino-a' || name === 'casino-b') {
+    game.reset(true);
+    // Half a second of real updates so the HUD and the minimap paint
+    // (they only repaint inside game.update); the camera pose below is
+    // set after, so the steps never move it.
+    step(game, 0.5, null);
+    const cam = game.renderer.camera;
+    if (name === 'casino-a') {
+      cam.position.set(118, 30, -52);
+      cam.fov = 58;
+      cam.updateProjectionMatrix();
+      cam.lookAt(85, 20, -85);
+    } else {
+      // Builder #18, second look: the first b camera (55,8,-60) was too
+      // low — from below, the crown's top edge hid the sign and only "CA"
+      // peeked out. This one is higher and more southerly, nearly level
+      // with the sign, so the whole word clears the crown.
+      cam.position.set(62, 24, -38);
+      cam.fov = 58;
+      cam.updateProjectionMatrix();
+      cam.lookAt(85, 28, -85);
+    }
+    game.player.health = 100;
+    game.hud.setHealth(100);
+    return { screen: 'play' };
+  }
+  // Builder #18 — the Hilman-style gameplay shots: each one plays the real
+  // rules forward, so the frame is proof the system works, not a mock-up.
+  if (name === 'carjack') {
+    game.reset(true);
+    // Rico spawns six units from his own pink convertible at the Hideout —
+    // inside steal range — so the hint reads "[E] Get in Solstice
+    // Convertible" and the car sits ahead in the frame.
+    step(game, 0.5, null);
+    game.player.health = 100;
+    game.hud.setHealth(100);
+    return { screen: 'play' };
+  }
+  if (name === 'drift') {
+    game.reset(true);
+    // Start far west: 5 s at full throttle from x=20 ran the car off the
+    // street onto the beach, so the frame was sand and ocean, not a drift
+    // on the road. From x=-60 the car is still on asphalt when the
+    // handbrake turn happens, with the street and the palms in frame.
+    placeInOwnCar(game, -60, 24, 0);
+    // Full throttle east to build speed, then a hard handbrake turn: the
+    // drift feedback pops for real (and pays $40), and it is pinned sticky
+    // for the photo — the live 1.6 s fade would otherwise fire mid-capture.
+    const fullThrottle = () => {
+      const a = lanePilot(game, 27.4, 'x');
+      return { ...a, throttle: 1 };
+    };
+    // Clear the street ahead like the cover does: a cruising car in the
+    // hero's lane pins the build-up behind it (lanePilot brakes for the
+    // car ahead), the car never tops 21 u/s, and the drift never reaches
+    // the 0.4 s threshold — that is why the first two takes stayed $250.
+    for (const c of game.traffic.cars) {
+      c.along = c.direction > 0 ? -175 : 175;
+    }
+    // The drift has to fire FOR REAL (cash $250 -> $290) — a slow build
+    // behind traffic can leave the car too slow for the 0.4 s threshold,
+    // so retry the build-and-handbrake up to three times and stop on the
+    // first $40 popup. Exactly one popup: the pin below matches it.
+    let drifted = false;
+    for (let attempt = 0; attempt < 3 && !drifted; attempt += 1) {
+      step(game, 3, fullThrottle);
+      step(game, 1.2, () => ({ throttle: 0, steer: 0.3, brake: 0, handbrake: 1, run: 0 }));
+      drifted = game.cash > 250;
+    }
+    game.hud.showFeedback('DRIFT x1', '+$40', true);
+    game.player.health = 100;
+    game.hud.setHealth(100);
+    return { screen: 'play' };
+  }
+  if (name === 'packages') {
+    game.reset(true);
+    game.startMission(3); // Mission 4: PINK PACKAGES.
+    // Collect three packages for real: walk Rico onto each spot and let the
+    // mission rules take it — the counter in the objective card counts up.
+    const spots = [{ x: 72, z: -96 }, { x: -96, z: -24 }, { x: 96, z: -72 }];
+    for (const spot of spots) {
+      game.player.x = spot.x;
+      game.player.z = spot.z;
+      game.player.mesh.position.set(spot.x, 0, spot.z);
+      step(game, 0.2, null);
+    }
+    // Face the casino from the third spot, so the frame shows Rico, the
+    // casino and the PACKAGES 3/10 counter together.
+    game.player.heading = Math.atan2(-85 - -72, 85 - 96);
+    step(game, 0.5, null);
+    game.player.health = 100;
+    game.hud.setHealth(100);
+    return { screen: 'play' };
+  }
+  if (name === 'busted') {
+    game.reset(true);
+    game.startMission(2); // Three stars: the VSPD is on Rico.
+    step(game, 0.2, null); // One step so the units actually spawn.
+    const p = game.player;
+    // Park the nearest unit on Rico's shoulder and keep it there: on foot,
+    // close, and held — the bust timer fills in 2.5 s and the game busts
+    // him for real. The player takes a few rams on the way in; the photo
+    // is the bust, not the beating — full health for the frame.
+    let busted = false;
+    for (let i = 0; i < 600 && !busted; i += 1) {
+      const u = game.police.units[0];
+      if (u && i % 30 === 0) {
+        u.car.x = p.x + 2.2;
+        u.car.z = p.z;
+        u.car.heading = Math.atan2(p.z - u.car.z, p.x - u.car.x);
+        u.car.speed = 0;
+        syncCarMesh(u.mesh, u.car, 0);
+      }
+      if (game.update(STEP, ZERO_AXES, 0, false) === 'busted') busted = true;
+    }
+    const fee = Math.round(game.cash * 0.10);
+    game.player.health = 100;
+    game.hud.setHealth(100);
+    return {
+      screen: 'over',
+      endTitle: 'BUSTED',
+      endText: `The VSPD takes Rico in. The fine: 10% of your cash — $${fee}. Back on the street.`,
+    };
+  }
+  if (name === 'district') {
+    game.reset(true);
+    // Rico stands on the z=-72 street at the casino's door, facing the neon
+    // sign — the district card fires for CASINO ROW over the landmark.
+    const p = game.player;
+    p.x = 85;
+    p.z = -72;
+    p.heading = -Math.PI / 2;
+    p.mesh.position.set(p.x, 0, p.z);
+    step(game, 0.5, null);
+    game.hud.showDistrict('CASINO ROW', true);
+    game.player.health = 100;
+    game.hud.setHealth(100);
     return { screen: 'play' };
   }
   if (name === 'driving') {

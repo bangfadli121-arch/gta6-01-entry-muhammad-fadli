@@ -72,6 +72,12 @@
   #feedback .big { font-size: 44px; }
   #feedback .sub { font-size: 18px; color: #7dff9a; margin-top: 2px; }
   #feedback.hidden { display: none; }
+  /* Builder #18: the district name card, big and top-centre, Hilman-style.
+     It sits below the top edge and above the drift feedback, so it never
+     covers the mission card (top-left), the cash (top-right) or the wheel. */
+  #districtCard { position: absolute; left: 50%; top: 15%; transform: translateX(-50%); text-align: center; pointer-events: none; }
+  #districtCardName { font-size: 46px; font-weight: 900; letter-spacing: 10px; color: #fff; text-shadow: 0 0 24px rgba(255,150,60,.9), 0 3px 0 rgba(0,0,0,.65); }
+  #districtCardSub { font-size: 13px; letter-spacing: 6px; color: #ffd94a; font-weight: 800; margin-top: 2px; text-shadow: 0 2px 4px rgba(0,0,0,.8); }
   #minimapWrap { position: absolute; left: 12px; bottom: 12px; padding: 6px; }
   #minimap { display: block; border-radius: 50%; border: 2px solid rgba(255,217,74,.65); box-sizing: border-box; }
   #minimapLabel { display: table; margin: 3px auto 0; padding: 2px 10px; background: rgba(10,5,25,.55); border-radius: 10px; text-align: center; font-size: 13px; letter-spacing: 3px; font-weight: 800; color: #9fe8ff; }
@@ -132,6 +138,7 @@
   <div id="respectBox" class="panel"><div class="lbl">RESPECT <b id="respectNum">4</b></div><div id="respectBarOuter"><div id="respectBar"></div></div><div class="pts"><span id="respectPts">456</span> / 1300</div></div>
   <div id="speedBox" class="panel"><svg viewBox="0 0 128 128" aria-hidden="true"><circle class="track" cx="64" cy="64" r="58"/><circle id="speedRing" cx="64" cy="64" r="58"/></svg><div id="speedNum">0</div><small id="speedUnit">KM/H &middot; ON FOOT</small><div id="vehicleLine">ON FOOT</div><div id="condBarOuter"><div id="condBar"></div></div><div id="condLine">CONDITION 100% &middot; G<span id="gearNum">1</span></div></div>
   <div id="feedback" class="hidden"><div class="big" id="feedbackBig"></div><div class="sub" id="feedbackSub"></div></div>
+  <div id="districtCard" class="hidden"><div id="districtCardName">CASINO ROW</div><div id="districtCardSub">VICE SHORES</div></div>
   <div id="messages"></div>
   <div id="dialogBar" class="panel hidden"><div id="dialogFace">MK</div><div><div id="dialogName">MARA KADE</div><div id="dialogText"></div></div></div>
   <div id="hintBox">WASD drive &amp; walk &middot; E steal a car &middot; F punch &middot; Click to shoot &middot; Space handbrake &middot; P pause &middot; M mute</div>

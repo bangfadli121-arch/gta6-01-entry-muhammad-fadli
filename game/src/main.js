@@ -1,8 +1,9 @@
 // Boot and the one loop: input is read every frame, the world advances in fixed
 // 1/60 s steps (several in a slow frame, none in a fast one), and the renderer
 // paints what is there. The game moves between four screens: title, play, paused
-// and busted/wasted. ?seed=N fixes the city. ?shot=cover|driving|onfoot|start
-// (with &seed=N) stages that scene instead of running the loop, paints it and
+// and busted/wasted. ?seed=N fixes the city. ?shot=cover|driving|onfoot|start|
+// casino-a|casino-b|carjack|drift|packages|busted|district (with &seed=N)
+// stages that scene instead of running the loop, paints it and
 // sets window.__shotReady for a screenshot.
 import { STEP, THEME } from './config.js';
 import { createGame } from './world.js';
@@ -80,6 +81,13 @@ function runShot(name) {
   if (scene.screen === 'title') {
     showOnly(startScreen);
     game.hud.hide();
+  } else if (scene.screen === 'over') {
+    // Builder #18: the staged BUSTED screen — the end card over the frozen
+    // bust frame, with the real 10% fine in the text.
+    endTitle.textContent = scene.endTitle || 'BUSTED';
+    endText.textContent = scene.endText || '';
+    showOnly(endScreen);
+    game.hud.hide();
   } else {
     showOnly(null);
     game.hud.show();
@@ -103,6 +111,7 @@ function runGame() {
   let screen = 'title';
   let save = game.loadSave();
   let endReason = '';
+  let endFee = 0;
 
   function announce(message) {
     status.textContent = message;
@@ -164,7 +173,7 @@ function runGame() {
       }
     } else if (screen === 'over') {
       if (actions & ACTION_CONFIRM) {
-        game.respawn(endReason === 'busted' ? 200 : 100, endReason === 'busted' ? 'Busted' : 'Wasted');
+        game.respawn(endFee, endReason === 'busted' ? 'Busted' : 'Wasted');
         screen = 'play';
         game.state.screen = 'play';
         showOnly(null);
@@ -199,11 +208,14 @@ function runGame() {
         accumulator -= STEP;
         if (event === 'wasted' || event === 'busted') {
           endReason = event;
+          // Builder #18: the bust fine is 10% of Rico's cash, Hilman-style —
+          // the hospital bill stays a flat $100.
+          endFee = event === 'busted' ? Math.round(game.cash * 0.10) : 100;
           showEnd(
             event === 'wasted' ? 'WASTED' : 'BUSTED',
             event === 'wasted'
-              ? 'Rico is down. The hospital patches him up — for a fee.'
-              : 'The VSPD takes Rico in. He posts bail and walks — $200 lighter.',
+              ? 'Rico is down. The hospital patches him up — $100.'
+              : `The VSPD takes Rico in. The fine: 10% of your cash — $${endFee}. Back on the street.`,
           );
           accumulator = 0;
           break;

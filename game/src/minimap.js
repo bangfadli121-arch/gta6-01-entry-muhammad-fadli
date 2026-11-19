@@ -221,6 +221,24 @@ export function drawMinimap(canvas, view) {
   ctx.strokeStyle = '#7a5200';
   ctx.lineWidth = 1;
   ctx.stroke();
+  // Builder #18 — the Vice Royale casino icon: a gold star at the
+  // casino's real spot on Casino Row (85,-85), bigger than the district
+  // dot, so the landmark reads on the map at a glance.
+  ctx.fillStyle = '#ffd94a';
+  ctx.beginPath();
+  for (let k = 0; k < 10; k += 1) {
+    const a = -Math.PI / 2 + (k / 10) * Math.PI * 2;
+    const rr = k % 2 === 0 ? 6 : 2.7;
+    const px = toX(CITY.casino.x - 11) + Math.cos(a) * rr;
+    const py = toY(CITY.casino.z + 11) + Math.sin(a) * rr;
+    if (k === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#7a5200';
+  ctx.lineWidth = 1;
+  ctx.stroke();
   ctx.fillStyle = '#2a9a6a';
   ctx.beginPath();
   ctx.arc(toX(-108), toY(134), 3.5, 0, Math.PI * 2);

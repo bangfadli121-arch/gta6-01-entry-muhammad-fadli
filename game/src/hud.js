@@ -51,6 +51,8 @@ export function createHud(document) {
   const feedback = el('feedback');
   const feedbackBig = el('feedbackBig');
   const feedbackSub = el('feedbackSub');
+  const districtCard = el('districtCard');
+  const districtCardName = el('districtCardName');
 
   let lastStars = -1;
   let lastCash = -1;
@@ -67,6 +69,8 @@ export function createHud(document) {
   let lastRespect = '';
   let lastCondition = -1;
   let feedbackTimer = 0;
+  let districtTimer = 0;
+  let lastDistrictShown = '';
 
   function setStars(stars) {
     if (stars === lastStars) return;
@@ -164,6 +168,38 @@ export function createHud(document) {
     if (feedbackTimer) window.clearTimeout(feedbackTimer);
     feedbackTimer = 0;
     feedback.classList.add('hidden');
+  }
+
+  /** The district name card: a big letterspaced title that slides in when
+   * Rico crosses into a new district, Hilman-style. Staged shots never
+   * show it (the cover drive crosses districts and the card would sit on
+   * the ferris wheel) — only the dedicated 'district' shot forces it, via
+   * `force`. Live play fades it after 3 seconds; a forced card in shot
+   * mode stays up, because a wall-clock fade would fire (or not) between
+   * staging and capture on slow SwiftShader frames, the same leak the
+   * message feed guards against. */
+  function showDistrict(name, force) {
+    if (!districtCard || name === lastDistrictShown) return;
+    if (document.documentElement.classList.contains('shot') && !force) return;
+    lastDistrictShown = name;
+    districtCardName.textContent = name;
+    districtCard.classList.remove('hidden');
+    if (districtTimer) window.clearTimeout(districtTimer);
+    districtTimer = 0;
+    if (!document.documentElement.classList.contains('shot')) {
+      districtTimer = window.setTimeout(() => {
+        districtCard.classList.add('hidden');
+        lastDistrictShown = '';
+        districtTimer = 0;
+      }, 3000);
+    }
+  }
+
+  function hideDistrict() {
+    if (districtTimer) window.clearTimeout(districtTimer);
+    districtTimer = 0;
+    lastDistrictShown = '';
+    if (districtCard) districtCard.classList.add('hidden');
   }
 
   function setAmmo(ammo) {
@@ -283,7 +319,7 @@ export function createHud(document) {
     hide() { hud.classList.add('hidden'); },
     setStars, setCash, setHealth, setObjective, setStage, setSpeed, setAmmo,
     setPolice, setDialog, setClock, setVehicle, setLocation, setRespect,
-    showFeedback, hideFeedback,
+    showFeedback, hideFeedback, showDistrict, hideDistrict,
     message, announce, clearMessages,
     setCrosshair(on) { crosshair.style.display = on ? 'block' : 'none'; },
     setHint(text) { hintBox.textContent = text; },

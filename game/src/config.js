@@ -35,7 +35,10 @@ export const CITY = {
   // World bounds the player and traffic stay inside (the beach edge).
   bound: 200,
   // Casino Row: the neon district, one block north-east of downtown.
-  casino: { x: 96, z: -96 },
+  // Builder #19: the Vice Royale itself moved to the causeway (56,2),
+  // south of the z=-24 avenue — the minimap star, the district radius
+  // and the label all follow this one value.
+  casino: { x: 56, z: 2 },
 };
 
 export const PALETTES = {
@@ -112,7 +115,9 @@ export const PLAYER = {
 
 export const WANTED = {
   // Stars -> how many police cars hunt the player.
-  policePerStar: [0, 1, 2, 3, 4, 5],
+  // Builder #19: 4 stars is a full VSPD response — 7 units, the way the
+  // cover chase is staged (CODE 4 in the HUD list).
+  policePerStar: [0, 1, 2, 3, 7, 8],
   // Seconds with no crime and no police nearby before a star fades.
   decaySeconds: 22,
   // How close a police car must be, and for how long, to bust the player on foot.

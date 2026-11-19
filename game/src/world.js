@@ -27,6 +27,12 @@ import { createCombat } from './combat.js';
 
 const SPAWN = { x: 24, z: -116.6, heading: 0 };
 
+// What the carjack prompt calls each kind of parked car.
+const CAR_NAMES = {
+  sedan: 'Viceroy Sedan', coupe: 'Stiletto Coupe', sports: 'Solstice Convertible',
+  taxi: 'Checker Cab', van: 'Mule Van', truck: 'Hauler Truck', police: 'VSPD Interceptor',
+};
+
 export function createGame(canvas, theme, seed, textures) {
   const renderer = createRenderer(canvas, theme, textures);
   const scene = renderer.scene;
@@ -60,6 +66,7 @@ export function createGame(canvas, theme, seed, textures) {
   let carCondition = 100;
   let driftTime = 0;
   let lastDriftShow = -10;
+  let lastDistrict = null;
   let nearMissTimer = 0;
   let saveTimer = 0;
   let muted = false;
@@ -135,6 +142,7 @@ export function createGame(canvas, theme, seed, textures) {
     crashTimer = 0;
     carCondition = 100;
     driftTime = 0;
+    lastDistrict = null;
     nearMissTimer = 0;
     state.time = 0;
     missions.reset();
@@ -275,11 +283,14 @@ export function createGame(canvas, theme, seed, textures) {
     if (axes.handbrake && Math.abs(car.speed) > 8) {
       particles.dust(car.x, car.z);
       if (Math.floor(state.time * 8) % 2 === 0) audio.skid();
-      // Drifting: hold the handbrake at speed and the feedback counts up.
+      // Drifting: hold the handbrake at speed and the feedback counts up —
+      // and every popup pays $40, Hilman-style. The 0.4 s threshold means a
+      // drift pops at ordinary cruise speed, not only near top speed.
       driftTime += dt;
-      if (driftTime > 0.6 && state.time - lastDriftShow > 0.5) {
+      if (driftTime > 0.4 && state.time - lastDriftShow > 0.5) {
         lastDriftShow = state.time;
-        hud.showFeedback(`DRIFT x${1 + Math.floor(driftTime)}`, '');
+        addCash(40);
+        hud.showFeedback(`DRIFT x${1 + Math.floor(driftTime)}`, '+$40');
       }
     } else {
       driftTime = 0;
@@ -410,10 +421,27 @@ export function createGame(canvas, theme, seed, textures) {
     const mm = String(minutes % 60).padStart(2, '0');
     hud.setClock(`DAY ${day} · ${hh}:${mm}`);
     hud.setVehicle(player.inCar && player.car ? player.car.kind.toUpperCase() : 'ON FOOT');
-    hud.setLocation(districtName(player.x, player.z));
-    hud.setHint(player.inCar
+    const district = districtName(player.x, player.z);
+    hud.setLocation(district);
+    // The district card: a big name card when Rico crosses into a new
+    // district, Hilman-style. The first paint of a fresh game sets the
+    // baseline silently — no card for the district he spawned in.
+    if (lastDistrict === null) lastDistrict = district;
+    else if (district !== lastDistrict) {
+      lastDistrict = district;
+      hud.showDistrict(district);
+    }
+    // The carjack prompt: on foot, next to a parked car, the hint becomes
+    // the car's name — "[E] Carjack Viceroy Sedan", Hilman-style. Rico's
+    // own convertible is "[E] Get in", not a theft.
+    let hint = player.inCar
       ? 'WASD drive · Space handbrake · E get out · P pause · M mute'
-      : 'WASD walk · E steal a car · F punch · Click to shoot · P pause · M mute');
+      : 'WASD walk · E steal a car · F punch · Click to shoot · P pause · M mute';
+    if (!player.inCar) {
+      const near = traffic.nearestParked(player.x, player.z, PLAYER.stealRange);
+      if (near) hint = `[E] ${near.own ? 'Get in' : 'Carjack'} ${CAR_NAMES[near.kind] || near.kind}`;
+    }
+    hud.setHint(hint);
     hud.drawMinimap({
       trafficCars: traffic.cars,
       hideout: HIDEOUT,

@@ -29,7 +29,7 @@ const SPAWN = { x: 24, z: -116.6, heading: 0 };
 
 // What the carjack prompt calls each kind of parked car.
 const CAR_NAMES = {
-  sedan: 'Viceroy Sedan', coupe: 'Stiletto Coupe', sports: 'Solstice Convertible',
+  sedan: 'Viceroy Sedan', coupe: 'Stiletto Coupe', sports: 'Solstice GT',
   taxi: 'Checker Cab', van: 'Mule Van', truck: 'Hauler Truck', police: 'VSPD Interceptor',
 };
 
@@ -77,7 +77,7 @@ export function createGame(canvas, theme, seed, textures) {
   scene.add(playerMesh.group);
   const player = {
     x: SPAWN.x, z: SPAWN.z, heading: SPAWN.heading,
-    speed: 0, health: PLAYER.health, ammo: PLAYER.pistolAmmo,
+    speed: 0, health: PLAYER.health, armour: 60, ammo: PLAYER.pistolAmmo,
     cash: START_CASH, inCar: false, car: null,
     mesh: playerMesh.group, walkPhase: 0,
   };
@@ -375,7 +375,7 @@ export function createGame(canvas, theme, seed, textures) {
     const r = Math.hypot(x, z);
     if (r >= CITY.beachInner) return 'PALM BEACH';
     if (Math.hypot(x - DOCKS.x, z - DOCKS.z) < 28) return 'THE DOCKS';
-    if (Math.hypot(x - CITY.casino.x, z - CITY.casino.z) < 30) return 'CASINO ROW';
+    if (Math.hypot(x - CITY.casino.x, z - CITY.casino.z) < 45) return 'CASINO ROW';
     if (Math.hypot(x - HIDEOUT.x, z - HIDEOUT.z) < 25) return 'HIDEOUT';
     if (x >= 120) return 'CORAL STRAND';
     if (r < 60) return 'DOWNTOWN';
@@ -388,6 +388,10 @@ export function createGame(canvas, theme, seed, textures) {
     hud.setStars(wanted);
     hud.setCash(player.cash);
     hud.setHealth(player.health);
+    hud.setArmour(player.armour);
+    // Mission timer: elapsed play time as MM:SS in the mission card.
+    const elapsed = Math.floor(state.time);
+    hud.setTimer(`TIME ${String(Math.floor(elapsed / 60)).padStart(2, '0')}:${String(elapsed % 60).padStart(2, '0')}`);
     hud.setObjective(missions.currentObjective());
     const mission = missions.missionIndex >= 0 ? MISSIONS[missions.missionIndex] : null;
     hud.setStage(mission ? missions.stepIndex + 1 : 0, mission ? mission.steps.length : 0);
@@ -401,12 +405,12 @@ export function createGame(canvas, theme, seed, textures) {
     hud.setPolice(police.units.map((u, i) => {
       const dist = Math.round(Math.hypot(u.car.x - player.x, u.car.z - player.z));
       let status = 'ENROUTE';
-      if (u.stuckTimer > 0) status = 'STUCK';
+      if (u.stuckTimer > 0) status = 'ROADBLOCK';
       else if (u.bustTimer > 0) status = 'BUST';
       else if (dist < 8) status = 'RAMMING';
       else if (dist < 40) status = 'PURSUIT';
       return { name: `VSPD-${i + 1}`, dist, status };
-    }));
+    }), `VICE PD RESPONSE — ${police.units.length} UNITS · CODE ${wanted}`);
     // The dialog bar: the mission giver and the live objective line.
     if (mission) {
       const initials = mission.giver.split(' ').map((w) => w[0]).join('');
@@ -420,7 +424,9 @@ export function createGame(canvas, theme, seed, textures) {
     const hh = String(Math.floor((minutes % (24 * 60)) / 60)).padStart(2, '0');
     const mm = String(minutes % 60).padStart(2, '0');
     hud.setClock(`DAY ${day} · ${hh}:${mm}`);
-    hud.setVehicle(player.inCar && player.car ? player.car.kind.toUpperCase() : 'ON FOOT');
+    hud.setVehicle(player.inCar && player.car
+      ? (CAR_NAMES[player.car.kind] || player.car.kind).toUpperCase()
+      : 'ON FOOT');
     const district = districtName(player.x, player.z);
     hud.setLocation(district);
     // The district card: a big name card when Rico crosses into a new
@@ -590,6 +596,9 @@ export function createGame(canvas, theme, seed, textures) {
     loadSave,
     startGame,
     startMission,
+    // Builder #19: let the screenshot stager raise the heat to a staged
+    // level (4 stars = the full 7-unit response) without a crime.
+    setWantedLevel(level) { setWanted(level); syncHud(true); },
     respawn,
     reset,
     update,

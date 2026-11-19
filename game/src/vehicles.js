@@ -307,7 +307,10 @@ export function createCarMesh(kind, color) {
       add(handle, 0.1, 0.55 + H / 2 - 0.05, side * (W / 2 + 0.02));
     }
   }
-  // Twin exhaust tips at the rear, low.
+  // Twin exhaust tips at the rear, low. Builder #19 — the hero sports
+  // car gets QUAD tips (two pairs) plus a dark rear diffuser under the
+  // bumper, so the chase camera's rear view reads as a performance car
+  // with a real tail — not a flat pink slab ("bak mandi").
   for (const side of [-1, 1]) {
     const tip = new THREE.Mesh(
       new THREE.CylinderGeometry(0.09, 0.09, 0.22, 8),
@@ -315,6 +318,30 @@ export function createCarMesh(kind, color) {
     );
     tip.rotation.z = Math.PI / 2;
     add(tip, -L / 2 - 0.55, 0.32, side * 0.45);
+  }
+  if (kind === 'sports') {
+    for (const side of [-1, 1]) {
+      const tip2 = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.09, 0.09, 0.22, 8),
+        chromeMat,
+      );
+      tip2.rotation.z = Math.PI / 2;
+      add(tip2, -L / 2 - 0.55, 0.32, side * 0.18);
+    }
+    const diffuser = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, 0.22, W * 0.7),
+      new THREE.MeshStandardMaterial({ color: 0x14141a, roughness: 0.9 }),
+    );
+    diffuser.position.set(-L / 2 - 0.42, 0.22, 0);
+    group.add(diffuser);
+    for (const dz of [-0.5, 0, 0.5]) {
+      const fin = new THREE.Mesh(
+        new THREE.BoxGeometry(0.34, 0.2, 0.06),
+        new THREE.MeshStandardMaterial({ color: 0x2a2a32, roughness: 0.7, metalness: 0.5 }),
+      );
+      fin.position.set(-L / 2 - 0.44, 0.2, dz);
+      group.add(fin);
+    }
   }
 
   // A rear spoiler on the sporty kinds, on two small struts — sized

@@ -313,47 +313,48 @@ export function createRenderer(canvas, theme, textures) {
   }
 
   /**
-   * Builder #13 — the COVER camera (Halcyon-style): a low, close,
-   * slightly off-axis chase pose for the cover shot only. The camera sits
-   * 7.5 units behind the car and 4.2 to its left, so the pink sports car
-   * reads in three-quarter rear view and fills the bottom of the frame
-   * instead of shrinking to a speck dead-centre, while the look target
-   * (13 ahead, a touch right and up) keeps the ferris wheel and the
-   * FLAMINGO FM board in frame. Called once after staging; the frozen
-   * shot loop never calls updateCamera again, so this pose holds until
-   * the capture. Live play keeps updateCamera's own pose.
+   * Builder #19 — the CAUSEWAY camera (rebuilt for the new layout): a
+   * low, close, slightly off-axis chase pose, pitched UP. The old pose
+   * looked level (lookAt y 3.2), which put the casino's rooftop CASINO
+   * sign — 33 units up, 50 east — above the frame's top edge. Looking
+   * up ~18 degrees keeps the hero's rear in the bottom of the frame
+   * AND the sign, the FLAMINGO board, the wheel and the low sun in it
+   * together. Called once after staging; the frozen shot loop never
+   * calls updateCamera again, so this pose holds until the capture.
+   * Live play keeps updateCamera's own pose.
    */
   function setCoverCamera(player) {
     const fx = Math.cos(player.heading);
     const fz = Math.sin(player.heading);
     // Right of the heading is (-sin h, cos h) in xz; the camera sits on
     // the LEFT-rear quarter (lat negative), the look target a touch right.
-    // Builder #15 — centre the hero (fadli: mobil hero jangan kepotong
-    // tepi kanan lagi). #14c put the car at px ~1245-1464 (rear), hard
-    // right of centre: lat -4.8 pushed the camera too far left and the
-    // +1.5 look offset pulled the frame's centre right of the car. Lat
-    // -3.4 + look +0.5 moves the car ~100 px toward the middle while the
-    // car stays big in three-quarter rear view; height 3.0 (was 3.3) is
-    // lower and closer to the Halcyon/Costa Solis chase pose. Dist 6.8
-    // keeps the whole car — spoiler included — inside the frame.
     const rx = -Math.sin(player.heading);
     const rz = Math.cos(player.heading);
-    const dist = 6.8;
-    const lat = -3.4;
+    // Builder #19, fifth look: the pitch math used 16 units ahead, but
+    // the look target sits 27 ahead of the camera (dist 11 behind the
+    // player + 16 ahead of him), so the real pitch was 5.9 deg, not 10
+    // — and the sign top stayed cut. lookAt y 8.2 gives the true 10 deg
+    // pitch: sign top at +22 deg rel axis, hero rear bottom at -29.
+    const dist = 11;
+    // Builder #19, second look: the camera rode the NORTH-rear quarter,
+    // the same side as the ramming unit — the hero hid behind it. The
+    // camera now rides the SOUTH-rear quarter, opposite the rammer, so
+    // the hero's rear sits clear in the bottom of the frame.
+    const lat = 2.6;
     camera.position.set(
       player.x - fx * dist + rx * lat,
-      3.0,
+      3.4,
       player.z - fz * dist + rz * lat,
     );
-    camera.fov = 62;
+    camera.fov = 64;
     camera.updateProjectionMatrix();
-    camera.lookAt(player.x + fx * 12, 3.2, player.z + fz * 12 + 0.5);
+    camera.lookAt(player.x + fx * 16, 8.2, player.z + fz * 16);
     camState.x = camera.position.x;
     camState.y = camera.position.y;
     camState.z = camera.position.z;
-    camState.lookX = player.x + fx * 12;
-    camState.lookY = 3.2;
-    camState.lookZ = player.z + fz * 12 + 0.5;
+    camState.lookX = player.x + fx * 16;
+    camState.lookY = 8.2;
+    camState.lookZ = player.z + fz * 16;
   }
 
   /** Place the camera for a low establishing view of the island (title

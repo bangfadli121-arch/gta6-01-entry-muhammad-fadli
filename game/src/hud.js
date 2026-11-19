@@ -21,6 +21,10 @@ export function createHud(document) {
   const objectiveTitle = el('objectiveTitle');
   const objectiveText = el('objectiveText');
   const objectiveSub = el('objectiveSub');
+  const objectiveTimer = el('objectiveTimer');
+  const objectiveNext = el('objectiveNext');
+  const policeTitle = el('policeTitle');
+  const armourBar = el('armourBar');
   const stageBar = el('stageBar');
   const stageText = el('stageText');
   const speedNum = el('speedNum');
@@ -63,6 +67,7 @@ export function createHud(document) {
   let lastPolice = '';
   let lastDialog = '';
   let lastClock = '';
+  let lastTimer = '';
   let lastVehicle = '';
   let lastLocation = '';
   let lastStage = '';
@@ -84,7 +89,21 @@ export function createHud(document) {
   function setCash(cash) {
     if (cash === lastCash) return;
     lastCash = cash;
-    cashNum.textContent = String(Math.floor(cash));
+    // Builder #19: thousands separators, so $38,420 reads at a glance.
+    cashNum.textContent = Math.floor(cash).toLocaleString('en-US');
+  }
+
+  /** The thin armour bar under the health bar (builder #19). */
+  function setArmour(value) {
+    if (!armourBar) return;
+    armourBar.style.width = `${Math.max(0, Math.min(100, Math.round(value)))}%`;
+  }
+
+  /** The mission-card timer (builder #19): elapsed play time, MM:SS. */
+  function setTimer(text) {
+    if (!objectiveTimer || text === lastTimer) return;
+    lastTimer = text;
+    objectiveTimer.textContent = text;
   }
 
   function setHealth(health) {
@@ -95,12 +114,22 @@ export function createHud(document) {
   }
 
   function setObjective(objective) {
-    const key = `${objective.title}|${objective.text}|${objective.sub}`;
+    const key = `${objective.title}|${objective.text}|${objective.sub}|${objective.next || ''}`;
     if (key === lastObjective) return;
     lastObjective = key;
     objectiveTitle.textContent = objective.title;
     objectiveText.textContent = objective.text;
     objectiveSub.textContent = objective.sub;
+    // Builder #19: the NEXT line in the mission card (staged shots pass
+    // it; live objectives leave it hidden).
+    if (objectiveNext) {
+      if (objective.next) {
+        objectiveNext.textContent = `NEXT: ${objective.next}`;
+        objectiveNext.classList.remove('hidden');
+      } else {
+        objectiveNext.classList.add('hidden');
+      }
+    }
   }
 
   /** The mission card's stage bar: which step of the mission is live. */
@@ -206,16 +235,19 @@ export function createHud(document) {
     if (ammo === lastAmmo) return;
     lastAmmo = ammo;
     ammoNum.textContent = String(ammo);
-    slotAmmo.textContent = String(ammo);
+    // Builder #19: the weapon panel shows the live pistol count as
+    // "2 PISTOL {ammo}/60"; the slot stays highlighted while loaded.
+    slotPistol.textContent = `2 PISTOL ${ammo}/60`;
     slotPistol.classList.toggle('on', ammo > 0);
   }
 
   /** The VSPD response list: one row per live unit — call sign, distance in
    * metres, and chase status derived from the unit's own state. */
-  function setPolice(units) {
+  function setPolice(units, header) {
     const key = units.map((u) => `${u.name}|${u.dist}|${u.status}`).join(';');
     if (key === lastPolice) return;
     lastPolice = key;
+    if (header && policeTitle) policeTitle.textContent = header;
     if (units.length === 0) {
       policeList.classList.add('hidden');
       return;
@@ -317,7 +349,7 @@ export function createHud(document) {
     // fresh: stale "Busted" lines from the last life must not linger.
     show() { hud.classList.remove('hidden'); clearMessages(); },
     hide() { hud.classList.add('hidden'); },
-    setStars, setCash, setHealth, setObjective, setStage, setSpeed, setAmmo,
+    setStars, setCash, setHealth, setArmour, setTimer, setObjective, setStage, setSpeed, setAmmo,
     setPolice, setDialog, setClock, setVehicle, setLocation, setRespect,
     showFeedback, hideFeedback, showDistrict, hideDistrict,
     message, announce, clearMessages,

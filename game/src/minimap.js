@@ -209,9 +209,11 @@ export function drawMinimap(canvas, view) {
   ctx.arc(toX(178), toY(-9), 5, 0, Math.PI * 2);
   ctx.stroke();
   ctx.fillStyle = '#ff5a8a';
-  for (const bz of [-58, 40]) {
+  // Builder #19: the two boards' real spots — VICE at (184,-58),
+  // FLAMINGO moved to the avenue's north side at (120,-52).
+  for (const [bx, bz] of [[184, -58], [120, -52]]) {
     ctx.beginPath();
-    ctx.arc(toX(184), toY(bz), 3.5, 0, Math.PI * 2);
+    ctx.arc(toX(bx), toY(bz), 3.5, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.fillStyle = '#ffd94a';
@@ -250,7 +252,7 @@ export function drawMinimap(canvas, view) {
   ctx.textBaseline = 'middle';
   ctx.fillText('CORAL STRAND', toX(90), toY(72));
   ctx.fillText('DOWNTOWN', toX(0), toY(8));
-  ctx.fillText('CASINO ROW', toX(88), toY(-112));
+  ctx.fillText('CASINO ROW', toX(56), toY(28));
   ctx.fillText('THE DOCKS', toX(-70), toY(122));
   ctx.fillText('OCEAN BLVD', toX(0), toY(150));
   // Traffic specks — round dots, never squares.

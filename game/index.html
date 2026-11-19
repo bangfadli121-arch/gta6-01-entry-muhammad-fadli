@@ -14,14 +14,14 @@
   /* Builder #11 (Halcyon-style): cash sits top-RIGHT, big and green, with
      the wanted stars right under it — the winners put the money where the
      eye lands first. */
-  #cashBox { position: absolute; top: 12px; right: 12px; padding: 8px 14px; font-size: 28px; font-weight: 800; color: #7dff9a; border-top: 3px solid #7dff9a; text-align: right; }
+  #cashBox { position: absolute; top: 12px; right: 12px; padding: 8px 14px; font-size: 34px; font-weight: 800; color: #7dff9a; border-top: 3px solid #7dff9a; text-align: right; }
   #cashBox small { display: block; font-size: 11px; letter-spacing: 2px; color: #cfe8d4; font-weight: 600; }
   #cashBox #clockLine { color: #ffd9a0; }
-  #wantedBox { position: absolute; top: 104px; right: 12px; padding: 6px 14px; text-align: right; border-top: 3px solid #ff5a7a; }
+  #wantedBox { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); padding: 6px 18px; text-align: center; border-top: 3px solid #ff5a7a; }
   #wantedBox .stars { font-size: 26px; letter-spacing: 4px; color: #ffd94a; line-height: 1; }
   #wantedBox .stars .off { color: rgba(255,255,255,.28); }
   #wantedBox small { font-size: 11px; letter-spacing: 2px; color: #ffd9a0; font-weight: 700; }
-  #policeList { position: absolute; top: 172px; right: 12px; width: 216px; padding: 6px 10px; font-size: 12px; font-weight: 700; border-top: 3px solid #37e0ff; }
+  #policeList { position: absolute; top: 168px; left: 12px; width: 252px; padding: 6px 10px; font-size: 12px; font-weight: 700; border-top: 3px solid #37e0ff; }
   #policeList .plTitle { font-size: 11px; letter-spacing: 2px; color: #9fe8ff; font-weight: 800; margin-bottom: 2px; }
   #policeList .unit { display: flex; justify-content: space-between; gap: 6px; padding: 1px 0; }
   #policeList .unit .st { font-weight: 800; }
@@ -40,16 +40,18 @@
   #stageBarOuter { height: 6px; background: rgba(0,0,0,.55); border-radius: 3px; margin-top: 6px; overflow: hidden; }
   #stageBar { height: 100%; width: 50%; background: linear-gradient(90deg, #ffd94a, #ff8a3d); }
   #stageText { font-size: 11px; letter-spacing: 2px; color: #ffe9a0; font-weight: 700; margin-top: 3px; }
-  #healthBox { position: absolute; left: 12px; top: 140px; width: 190px; padding: 8px 10px; border-top: 3px solid #ff5a5a; }
-  #healthBox .lbl { font-size: 11px; letter-spacing: 2px; font-weight: 700; color: #ffb3b3; }
-  #healthBarOuter { height: 12px; background: rgba(0,0,0,.6); border-radius: 6px; margin-top: 4px; overflow: hidden; }
-  #healthBar { height: 100%; width: 100%; background: linear-gradient(90deg, #ff5a5a, #ff9a3d); }
-  #ammoBox { position: absolute; left: 12px; top: 200px; padding: 6px 12px; font-size: 16px; font-weight: 800; color: #ffe9a8; }
-  #weaponBox { position: absolute; left: 12px; top: 240px; padding: 6px 10px; font-size: 13px; font-weight: 800; }
-  #weaponBox .slot { display: inline-block; padding: 2px 8px; border-radius: 4px; margin-right: 4px; color: rgba(255,255,255,.55); }
+  #objectiveTimer { font-size: 12px; letter-spacing: 2px; color: #7df9ff; font-weight: 800; margin-top: 4px; }
+  #objectiveNext { font-size: 12px; color: #ffe9a0; font-weight: 700; margin-top: 2px; }
+  #ammoBox { display: none; }
+  /* Builder #19: the weapon panel is a numbered vertical list on the
+     RIGHT, under the cash — 5 slots, the active one highlighted. */
+  #weaponBox { position: absolute; right: 12px; top: 168px; width: 210px; padding: 8px 10px; font-size: 13px; font-weight: 800; border-top: 3px solid #ffd94a; }
+  #weaponBox .wTitle { font-size: 11px; letter-spacing: 2px; color: #ffd94a; margin-bottom: 4px; }
+  #weaponBox .slot { display: block; padding: 3px 8px; border-radius: 4px; margin-top: 2px; color: rgba(255,255,255,.75); }
   #weaponBox .slot.on { background: #ffd94a; color: #1a1030; }
   #weaponBox .slot.locked { color: rgba(255,255,255,.3); }
-  #radioBar { position: absolute; left: 12px; top: 280px; padding: 6px 12px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
+  /* Builder #19: the radio sits bottom-RIGHT, over the car card. */
+  #radioBar { position: absolute; right: 12px; bottom: 156px; padding: 6px 12px; font-size: 13px; display: flex; gap: 8px; align-items: center; }
   #radioBar .station { color: #ff5a8a; font-weight: 800; letter-spacing: 1px; }
   #radioBar .song { color: #ffe9c0; font-weight: 600; }
   #radioBar .eq { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; }
@@ -61,12 +63,24 @@
   @keyframes eq { 0%, 100% { transform: scaleY(.5); } 50% { transform: scaleY(1); } }
   .shot #radioBar .eq i { animation: none; }
   /* Respect bar under the minimap, Halcyon-style. */
-  #respectBox { position: absolute; left: 12px; bottom: 224px; width: 182px; padding: 6px 10px; font-size: 12px; font-weight: 800; border-top: 3px solid #7dff9a; }
+  /* Builder #19: health + armour are thin bars stacked ABOVE the
+     minimap, the respect bar sits under the district label — one
+     bottom-left column, nothing floating elsewhere. */
+  #minimapWrap .hbar { margin-bottom: 5px; }
+  #minimapWrap .hbar .lbl { font-size: 10px; letter-spacing: 2px; font-weight: 700; color: #ffb3b3; }
+  #minimapWrap .hbar.armour .lbl { color: #9fd8ff; }
+  #healthBarOuter, #armourBarOuter { height: 7px; background: rgba(0,0,0,.6); border-radius: 4px; margin-top: 2px; overflow: hidden; }
+  #healthBar { height: 100%; width: 100%; background: linear-gradient(90deg, #ff5a5a, #ff9a3d); }
+  #armourBar { height: 100%; width: 60%; background: linear-gradient(90deg, #37e0ff, #7df9ff); }
+  #respectBox { margin-top: 5px; padding: 6px 10px; font-size: 12px; font-weight: 800; border-top: 3px solid #7dff9a; }
   #respectBox .lbl { font-size: 11px; letter-spacing: 2px; color: #cfe8d4; }
   #respectBox .lbl b { color: #7dff9a; }
   #respectBarOuter { height: 8px; background: rgba(0,0,0,.6); border-radius: 4px; margin-top: 4px; overflow: hidden; }
   #respectBar { height: 100%; width: 35%; background: linear-gradient(90deg, #7dff9a, #ffd94a); }
   #respectBox .pts { font-size: 10px; color: #ffe9a0; margin-top: 2px; letter-spacing: 1px; }
+  /* Builder #19: the minimap-zoom shot enlarges the whole bottom-left
+     column so the round map, the casino star and the label fill the frame. */
+  .minimap-zoom #minimapWrap { transform: scale(1.7); transform-origin: bottom left; }
   /* Drift / near-miss feedback, big in the middle of the road. */
   #feedback { position: absolute; left: 50%; top: 34%; transform: translateX(-50%); text-align: center; font-weight: 900; letter-spacing: 2px; color: #ffd94a; text-shadow: 0 0 18px rgba(255,120,60,.9), 0 2px 0 rgba(0,0,0,.6); pointer-events: none; }
   #feedback .big { font-size: 44px; }
@@ -128,14 +142,12 @@
 <div id="hud" class="hidden">
   <div id="cashBox" class="panel">$<span id="cashNum">250</span><small>CASH &middot; RICO VALE</small><small id="clockLine">DAY 1 &middot; 18:52</small></div>
   <div id="wantedBox" class="panel"><div class="stars" id="stars"></div><small id="wantedLabel">CLEAN</small></div>
-  <div id="policeList" class="panel hidden"><div class="plTitle">VSPD RESPONSE</div><div id="policeRows"></div></div>
-  <div id="objectiveBox" class="panel"><div id="objectiveTitle">MISSION 1 &middot; THE PICKUP</div><div id="objectiveText">Drive to the Docks</div><div id="objectiveSub">Follow the yellow marker &mdash; steal any car with E</div><div id="stageBarOuter"><div id="stageBar"></div></div><div id="stageText">STAGE 1/2</div></div>
-  <div id="healthBox" class="panel"><div class="lbl">HEALTH</div><div id="healthBarOuter"><div id="healthBar"></div></div></div>
+  <div id="policeList" class="panel hidden"><div class="plTitle" id="policeTitle">VICE PD RESPONSE</div><div id="policeRows"></div></div>
+  <div id="objectiveBox" class="panel"><div id="objectiveTitle">MISSION 1 &middot; THE PICKUP</div><div id="objectiveText">Drive to the Docks</div><div id="objectiveSub">Follow the yellow marker &mdash; steal any car with E</div><div id="stageBarOuter"><div id="stageBar"></div></div><div id="stageText">STAGE 1/2</div><div id="objectiveTimer">TIME 00:00</div><div id="objectiveNext" class="hidden"></div></div>
   <div id="ammoBox" class="panel">PISTOL &middot; <span id="ammoNum">24</span></div>
-  <div id="weaponBox" class="panel"><span class="slot" id="slotFists">0 FISTS</span><span class="slot on" id="slotPistol">1 PISTOL &middot; <span id="slotAmmo">24</span></span><span class="slot locked" id="slotSmg">2 SMG &middot; LOCKED</span><span class="slot locked">3 LOCKED</span></div>
+  <div id="weaponBox" class="panel"><div class="wTitle">WEAPONS</div><span class="slot on" id="slotFists">1 FISTS &infin;</span><span class="slot on" id="slotPistol">2 PISTOL 24/60</span><span class="slot locked" id="slotSmg">3 SMG 32/160</span><span class="slot locked">4 LOCKED</span><span class="slot locked">5 LOCKED</span></div>
   <div id="radioBar" class="panel"><span class="station">&#9834; FLAMINGO FM 88.1</span><span class="song">Pink Horizon &mdash; Lumen Kids</span><span class="eq"><i></i><i></i><i></i><i></i></span></div>
-  <div id="minimapWrap" class="panel"><canvas id="minimap" width="170" height="170"></canvas><div id="minimapLabel">VICE SHORES</div></div>
-  <div id="respectBox" class="panel"><div class="lbl">RESPECT <b id="respectNum">4</b></div><div id="respectBarOuter"><div id="respectBar"></div></div><div class="pts"><span id="respectPts">456</span> / 1300</div></div>
+  <div id="minimapWrap" class="panel"><div class="hbar"><div class="lbl">HEALTH</div><div id="healthBarOuter"><div id="healthBar"></div></div></div><div class="hbar armour"><div class="lbl">ARMOUR</div><div id="armourBarOuter"><div id="armourBar"></div></div></div><canvas id="minimap" width="170" height="170"></canvas><div id="minimapLabel">VICE SHORES</div><div id="respectBox" class="panel"><div class="lbl">RESPECT <b id="respectNum">4</b></div><div id="respectBarOuter"><div id="respectBar"></div></div><div class="pts"><span id="respectPts">456</span> / 1300</div></div></div>
   <div id="speedBox" class="panel"><svg viewBox="0 0 128 128" aria-hidden="true"><circle class="track" cx="64" cy="64" r="58"/><circle id="speedRing" cx="64" cy="64" r="58"/></svg><div id="speedNum">0</div><small id="speedUnit">KM/H &middot; ON FOOT</small><div id="vehicleLine">ON FOOT</div><div id="condBarOuter"><div id="condBar"></div></div><div id="condLine">CONDITION 100% &middot; G<span id="gearNum">1</span></div></div>
   <div id="feedback" class="hidden"><div class="big" id="feedbackBig"></div><div class="sub" id="feedbackSub"></div></div>
   <div id="districtCard" class="hidden"><div id="districtCardName">CASINO ROW</div><div id="districtCardSub">VICE SHORES</div></div>

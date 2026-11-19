@@ -13,13 +13,14 @@
 // mission pays its reward and opens the next one.
 
 import * as THREE from 'three';
-import { CITY, MISSIONS, HIDEOUT } from './config.js';
+import { CITY, MISSIONS, HIDEOUT, PACKAGE_SPOTS } from './config.js';
 import { createCarMesh, syncCarMesh, makeCarRecord } from './vehicles.js';
 
 const TAIL_RANGE = 26;
 const TAIL_NEED = 6;
 const GOTO_RADIUS = 7;
 const BRIEFCASE_RADIUS = 3;
+const PACKAGE_RADIUS = 2.5;
 
 export function createMissions(scene, seed) {
   let missionIndex = -1;
@@ -58,6 +59,49 @@ export function createMissions(scene, seed) {
   scene.add(briefcaseMesh);
   const briefcase = { active: false, x: 0, z: -1000, mesh: briefcaseMesh };
 
+  // The pink packages: ten small glowing pink boxes on the streets, hidden
+  // until the collection job starts. Each one spins slowly so it reads as
+  // a pickup, not street litter.
+  const packageMeshes = PACKAGE_SPOTS.map((spot) => {
+    const mesh = new THREE.Mesh(
+      new THREE.BoxGeometry(0.55, 0.55, 0.55),
+      new THREE.MeshStandardMaterial({ color: 0xff5a9a, emissive: 0xd81e6a, emissiveIntensity: 0.8, roughness: 0.35, metalness: 0.1 }),
+    );
+    mesh.position.set(spot.x, 0.45, spot.z);
+    mesh.visible = false;
+    scene.add(mesh);
+    return mesh;
+  });
+  let packagesTaken = PACKAGE_SPOTS.map(() => false);
+  let packagesActive = false;
+  let packagesCollected = 0;
+  let lastPx = 0;
+  let lastPz = 0;
+
+  function hidePackages() {
+    packagesActive = false;
+    for (const mesh of packageMeshes) mesh.visible = false;
+  }
+
+  function showPackages() {
+    packagesActive = true;
+    packagesTaken = PACKAGE_SPOTS.map(() => false);
+    packagesCollected = 0;
+    for (const mesh of packageMeshes) mesh.visible = true;
+  }
+
+  /** The nearest package Rico has not taken yet, or null. */
+  function nearestPackage(px, pz) {
+    let best = null;
+    let bestD = Infinity;
+    for (let i = 0; i < PACKAGE_SPOTS.length; i += 1) {
+      if (packagesTaken[i]) continue;
+      const d = Math.hypot(PACKAGE_SPOTS[i].x - px, PACKAGE_SPOTS[i].z - pz);
+      if (d < bestD) { bestD = d; best = PACKAGE_SPOTS[i]; }
+    }
+    return best;
+  }
+
   function current() {
     return missionIndex >= 0 && missionIndex < MISSIONS.length ? MISSIONS[missionIndex] : null;
   }
@@ -89,6 +133,9 @@ export function createMissions(scene, seed) {
   return {
     courier,
     briefcase,
+    get packages() { return packageMeshes; },
+    get collected() { return packagesCollected; },
+    get packagesActive() { return packagesActive; },
     get missionIndex() { return missionIndex; },
     get stepIndex() { return stepIndex; },
     get storyDone() { return finished; },
@@ -96,7 +143,19 @@ export function createMissions(scene, seed) {
 
     currentObjective() {
       if (finished) return { title: 'STORY COMPLETE', text: 'Rico owns Vice Shores', sub: 'Free roam — the city is yours' };
-      return stepLabel(currentStep());
+      const step = currentStep();
+      // The collection job counts live: the objective line and the sub-line
+      // both carry the PACKAGES n/10 counter, Hilman-style.
+      if (step && step.type === 'collect') {
+        const mission = current();
+        const total = step.total || PACKAGE_SPOTS.length;
+        return {
+          title: `MISSION ${mission.id} · ${mission.title}`,
+          text: `Collect the pink packages — ${packagesCollected}/${total}`,
+          sub: `PACKAGES ${packagesCollected}/${total}`,
+        };
+      }
+      return stepLabel(step);
     },
 
     /** Where the yellow marker points, or null when there is none. */
@@ -108,6 +167,7 @@ export function createMissions(scene, seed) {
       if (step.type === 'combat') {
         return briefcase.active ? { x: briefcase.x, z: briefcase.z } : { x: courier.car.x, z: courier.car.z };
       }
+      if (step.type === 'collect') return nearestPackage(lastPx, lastPz) ?? null;
       return null;
     },
 
@@ -134,6 +194,9 @@ export function createMissions(scene, seed) {
       }
       briefcase.active = false;
       briefcaseMesh.visible = false;
+      // The pink packages only exist for their own job.
+      if (mission.id === 4) showPackages();
+      else hidePackages();
       return mission.intro;
     },
 
@@ -154,6 +217,7 @@ export function createMissions(scene, seed) {
       courier.car.mesh.group.visible = false;
       briefcase.active = false;
       briefcaseMesh.visible = false;
+      hidePackages();
     },
 
     /**
@@ -186,6 +250,15 @@ export function createMissions(scene, seed) {
 
       const px = ctx.player.x;
       const pz = ctx.player.z;
+      lastPx = px;
+      lastPz = pz;
+
+      // The pink packages spin while they wait to be picked up.
+      if (packagesActive) {
+        for (let i = 0; i < packageMeshes.length; i += 1) {
+          if (!packagesTaken[i]) packageMeshes[i].rotation.y += dt * 1.5;
+        }
+      }
 
       if (step.type === 'goto' || step.type === 'escape') {
         const d = Math.hypot(px - step.x, pz - step.z);
@@ -224,6 +297,25 @@ export function createMissions(scene, seed) {
         if (briefcase.active && Math.hypot(px - briefcase.x, pz - briefcase.z) < BRIEFCASE_RADIUS) {
           briefcase.active = false;
           briefcaseMesh.visible = false;
+          event.advance = true;
+          stepIndex += 1;
+        }
+      } else if (step.type === 'collect') {
+        // Walk or drive into a pink package to take it; the counter in the
+        // objective card counts up, and the marker jumps to the next one.
+        const total = step.total || PACKAGE_SPOTS.length;
+        if (packagesActive) {
+          for (let i = 0; i < PACKAGE_SPOTS.length; i += 1) {
+            if (packagesTaken[i]) continue;
+            if (Math.hypot(px - PACKAGE_SPOTS[i].x, pz - PACKAGE_SPOTS[i].z) < PACKAGE_RADIUS) {
+              packagesTaken[i] = true;
+              packagesCollected += 1;
+              packageMeshes[i].visible = false;
+              event.message = `Package ${packagesCollected}/${total} — ${total - packagesCollected} to go.`;
+            }
+          }
+        }
+        if (packagesCollected >= total) {
           event.advance = true;
           stepIndex += 1;
         }

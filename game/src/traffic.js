@@ -57,6 +57,18 @@ export function createTraffic(scene, seed, buildings) {
 
   /** Put a driving car at its (axis, street, along) coordinates. */
   function placeCar(car) {
+    if (car.axis === 'd') {
+      // Builder #18 — the diagonal avenue: the avenue is the line
+      // x+z=-60 through (-30,-30), direction (1,-1)/sqrt2. `along` runs
+      // down the avenue, `lane` offsets across it (right-hand traffic:
+      // +2.5 on the south-east side when driving north-east).
+      const u = Math.SQRT1_2;
+      car.x = -30 + (car.along + car.lane) * u;
+      car.z = -30 + (-car.along + car.lane) * u;
+      car.heading = car.direction > 0 ? -Math.PI / 4 : Math.PI * 3 / 4;
+      syncCarMesh(car.mesh, car, 0);
+      return;
+    }
     if (car.axis === 'x') {
       car.x = car.along;
       car.z = car.lane;
@@ -161,6 +173,31 @@ export function createTraffic(scene, seed, buildings) {
   }
 
   for (let i = 0; i < DRIVE_COUNT; i += 1) addDrivingCar();
+  // Builder #18 — TRAFFIC ON THE DIAGONAL AVENUE: four cars cruise the
+  // avenue itself (axis 'd', street -60 = the line x+z=-60), so the new
+  // main drag is alive instead of empty. Fixed specs, no rng — the
+  // seeded grid traffic never moves, and reset() parks each one back on
+  // its home spot instead of drawing a new one.
+  function addDiagCar(along, direction, kind, color, cruise) {
+    const car = makeCarRecord(kind, color, 0, 0, 0);
+    car.axis = 'd';
+    car.street = -60;
+    car.direction = direction;
+    car.along = along;
+    car.homeAlong = along;
+    car.cruise = cruise;
+    car.speed = cruise;
+    car.lane = direction > 0 ? 2.5 : -2.5;
+    car.mesh = createCarMesh(kind, color);
+    scene.add(car.mesh.group);
+    placeCar(car);
+    cars.push(car);
+    return car;
+  }
+  addDiagCar(-120, 1, 'taxi', 0xffd94a, 12);
+  addDiagCar(-40, -1, 'sedan', 0x2ad8c8, 11);
+  addDiagCar(30, 1, 'coupe', 0xe83a3a, 13);
+  addDiagCar(110, -1, 'van', 0xff8a3d, 10);
   addParkedCar(true);
   for (let i = 0; i < PARKED_COUNT; i += 1) addParkedCar(false);
   for (let i = 0; i < PED_COUNT; i += 1) {
@@ -211,6 +248,14 @@ export function createTraffic(scene, seed, buildings) {
 
     reset() {
       for (const car of cars) {
+        // Builder #18 — diagonal cars park back on their fixed home
+        // spots (no rng draw, so the seeded stream never moves).
+        if (car.axis === 'd') {
+          car.along = car.homeAlong;
+          car.speed = car.cruise;
+          placeCar(car);
+          continue;
+        }
         car.along = range(rng, -175, 175);
         car.speed = car.cruise;
         placeCar(car);

@@ -1,10 +1,21 @@
-// The screenshot scenes behind ?shot=cover|driving|onfoot|start|casino-a|
-// casino-b|carjack|drift|packages|busted|district. Each one plays
-// the real rules forward from a fresh world for a fixed number of fixed steps,
-// steered by a tiny autopilot (stay on the street, brake for the car ahead),
-// so the frame is what a short game really looks like and the same seed always
-// gives the same frame. The cover stages a police chase with three stars, the
-// mission objective and the minimap all in one frame.
+// The screenshot scenes behind ?shot=cover|driving|onfoot|start|
+// close-casino|casino-a|casino-b|carjack|drift|packages|busted|
+// district|minimap-zoom|traffic-heli. Each one plays the real rules
+// forward from a fresh world for a fixed number of fixed steps,
+// steered by a tiny autopilot (stay on the street, brake for the car
+// ahead), so the frame is what a short game really looks like and the
+// same seed always gives the same frame.
+//
+// Builder #19 — THE GOLDEN HOUR CAUSEWAY (total rebuild): the cover
+// chase runs EAST down the z=-24 avenue straight into the low sun.
+// The Vice Royale casino stands on the avenue's SOUTH side (56,2) —
+// the RIGHT of the frame — its rooftop CASINO sign facing WEST toward
+// the approaching camera and its VICE ROYALE marquee facing NORTH onto
+// the avenue. The FLAMINGO FM board stands on the NORTH side (150,-52)
+// — the LEFT of the frame — with the ferris wheel at the end of the
+// street. The cover acceptance test: one frame must show (a) the hero
+// car's rear, (b) the CASINO sign/marquee, (c) the FLAMINGO FM board,
+// (d) the helicopter, (e) at least one police car, (f) the low sun.
 import { STEP } from './config.js';
 import { ACTION_ENTER, ACTION_PUNCH } from './input.js';
 import { createCarMesh, syncCarMesh } from './vehicles.js';
@@ -67,7 +78,8 @@ function placeInOwnCar(game, x, z, heading) {
   return true;
 }
 
-/** Park police cars ahead of the player, facing him, for the chase frame. */
+/** Park police cars around the player for the chase frame. Offsets are
+ * relative to the player; each unit faces him. */
 function placePoliceAhead(game, offsets) {
   const p = game.player;
   game.police.units.forEach((u, i) => {
@@ -80,215 +92,224 @@ function placePoliceAhead(game, offsets) {
   });
 }
 
+/** Clear the chase corridor of cruising traffic and kerb-parked cars, so
+ * the hero's drive never wedges behind a crossing car or a parked truck. */
+function clearCorridor(game) {
+  for (const c of game.traffic.cars) {
+    c.along = c.direction > 0 ? -175 : 175;
+  }
+  for (const p of game.traffic.parked) {
+    if (p.own) continue;
+    if (p.x > -80 && p.x < 195 && Math.abs(p.z + 20.6) < 12) {
+      p.x = -170;
+      p.along = -170;
+      syncCarMesh(p.mesh, p, 0);
+    }
+  }
+}
+
+/** Stage civilian traffic ahead of the hero on the avenue: eastbound cars
+ * in the hero's lane (rear view) and oncoming cars in the far lane. */
+function stageAvenueTraffic(game, specs) {
+  const scene = game.renderer.scene;
+  specs.forEach((spec, i) => {
+    const car = game.traffic.cars[i];
+    if (!car) return;
+    scene.remove(car.mesh.group);
+    car.mesh = createCarMesh(spec.kind, spec.color);
+    scene.add(car.mesh.group);
+    car.kind = spec.kind;
+    car.color = spec.color;
+    car.axis = 'x';
+    car.street = -24;
+    car.direction = spec.dir;
+    car.along = game.player.x + spec.dx;
+    car.lane = spec.lane;
+    car.speed = car.cruise;
+  });
+}
+
+const AVENUE_TRAFFIC = [
+  { kind: 'taxi', color: 0xffd94a, dx: 30, lane: -21.5, dir: 1 },
+  { kind: 'sedan', color: 0x2ad8c8, dx: 42, lane: -21.5, dir: 1 },
+  { kind: 'coupe', color: 0xf5f5f5, dx: 54, lane: -21.5, dir: 1 },
+  { kind: 'sports', color: 0xe83a3a, dx: 66, lane: -21.5, dir: 1 },
+  { kind: 'sedan', color: 0x2a6fd8, dx: 36, lane: -27.5, dir: -1 },
+  { kind: 'van', color: 0xff8a3d, dx: 50, lane: -27.5, dir: -1 },
+  { kind: 'coupe', color: 0xf5f5f5, dx: 62, lane: -27.5, dir: -1 },
+];
+
+/** Seven VSPD units for a 4-star chase: one RAMMING the hero's rear
+ * bumper, three converging ahead, three flanking. */
+const CHASE_POLICE = [
+  // Builder #19, second look: the ramming unit sat dead on the camera
+  // axis behind the hero and hid him completely. It now rides the
+  // NORTH rear quarter (opposite the camera), still RAMMING at 6.5m.
+  { dx: -5.5, dz: -3.5 },
+  { dx: 12, dz: -5 },
+  { dx: 17, dz: 5 },
+  { dx: 23, dz: -2 },
+  { dx: 7, dz: -8 },
+  { dx: 10, dz: 8 },
+  { dx: 29, dz: 3 },
+];
+
+/** Park the VSPD helicopter in the sky ahead of the chase. */
+function stageHeli(game, dx, height, dz) {
+  const heli = game.city.helicopter;
+  if (!heli) return;
+  heli.visible = true;
+  heli.position.set(game.player.x + dx, height, game.player.z + dz);
+  heli.rotation.y = -0.25;
+  game.city.heliRotor.rotation.y = 0.7;
+  game.city.heliTailRotor.rotation.x = 1.1;
+}
+
+/** Pin every police light bar ON (flash = 1, red side lit) and re-sync,
+ * so the bars read the same in every capture. */
+function pinLightBars(game) {
+  for (const u of game.police.units) {
+    u.car.flash = 1;
+    syncCarMesh(u.mesh, u.car, 0);
+  }
+}
+
+/** The staged cover HUD: the GOLDEN HOUR job card, 4 stars, $38,420. */
+function stageCoverHud(game) {
+  game.player.cash = 38420;
+  game.hud.setCash(38420);
+  game.hud.setObjective({
+    title: 'JOB 4/8 · GOLDEN HOUR',
+    text: 'Lose the cops before the boat sails',
+    sub: 'VSPD on your tail — break away east',
+    next: 'Reach the marina · PACKAGES 4/10',
+  });
+  game.hud.setStage(4, 5);
+  game.player.health = 100;
+  game.hud.setHealth(100);
+}
+
+/** Raise the heat to 4 stars (7 units) and let one step spawn them. */
+function raiseHeat(game) {
+  game.startMission(2); // Mission 3: LOSE THE HEAT.
+  game.setWantedLevel(4);
+  game.update(STEP, ZERO_AXES, 0, false);
+}
+
 export function stageShot(name, game) {
   if (name === 'cover') {
     game.reset(true);
-    // The chase runs east down the beachfront street toward the ocean and
-    // the low sun, palms on both kerbs, the billboard and the ferris wheel
-    // ahead on the left, the beach at the end of the street. Builder #9:
-    // seven seconds in, so the low shop row, the billboard and the wheel
-    // are all inside the frame instead of the chase ending at a tower wall
-    // — eight seconds drove too far east and pushed the wheel out of frame.
-    // Builder #10: five seconds from further west, so the wheel is a full
-    // landmark in the frame instead of a sliver at the edge, the VICE
-    // SHORES board sits whole on the left, and the FLAMINGO FM board
-    // reads whole on the right — seven seconds drove the car so far east
-    // that the wheel hid behind the first board's glow and the board
-    // itself was cut off at the frame's left edge. Take 2: six seconds —
-    // five left the camera too far west and the beachfront tower row hid
-    // the wheel entirely, so the chase needs one more second east before
-    // the wheel clears the towers and the boards sit whole on both sides.
-    // Take 3: seven seconds after all — at six the wheel still sits
-    // behind the tower at (116,-58): the sightline only threads the x=145
-    // street gap once the camera is past x~90. The first board's glow
-    // sprite is shrunk so it no longer washes the wheel out, and the
-    // FLAMINGO board at z=40 still holds whole on the frame's right side
-    // at seven seconds (its far edge stays inside the frame).
-    placeInOwnCar(game, -70, -24, 0);
-    // Clear the chase route: a crossing car that stops for the player
-    // (traffic brakes when the player is ahead of it) wedges the chase
-    // to a dead stop in the intersection — that is what pinned the
-    // speedo at 0. Every traffic car starts the drive at the far end
-    // behind its direction of travel, so none of them reaches the
-    // chase's route in eight seconds.
-    for (const c of game.traffic.cars) {
-      c.along = c.direction > 0 ? -175 : 175;
-    }
-    // Builder #12: clear the PARKED kerb too — a parked truck on the
-    // z=-24 kerb right ahead of the chase start filled the whole
-    // bottom-left of the cover frame with one flat orange slab. Parked
-    // cars in the chase corridor (both kerbs, x -80..195) are rolled to
-    // the street's far west end, behind the camera, where they can
-    // neither block the wheel nor loom in the foreground. The player's
-    // own car is exempt.
-    for (const p of game.traffic.parked) {
-      if (p.own) continue;
-      if (p.x > -80 && p.x < 195 && Math.abs(p.z + 20.6) < 12) {
-        p.x = -170;
-        p.along = -170;
-        syncCarMesh(p.mesh, p, 0);
-      }
-    }
-    // Drive clean first: the heat only lands once the chase frame is staged,
-    // so the police have no time to ram Rico to pieces before the photo.
-    // Builder #11: eight seconds from further west — the chase must still
-    // be moving when the photo is taken (speedo up, not 0), and the
-    // camera must be east of the mid-city towers so the low sun reads
-    // down the street. The pilot brakes for the car ahead; the street
-    // ahead is cleared above, so it never has to.
-    // Builder #12: ELEVEN seconds — the 8-second frame wedged the chase
-    // behind the (133,-11) tower, which hid the ferris wheel, and the
-    // yellow drum at (107,-37) blocked the VICE SHORES board. At eleven
-    // seconds (proven in #11's local run 5) the camera is past both
-    // blockers, the wheel stands at the end of the street, and both
-    // billboards sit whole in the frame. The corridor towers are also
-    // capped low in city.js, so the composition no longer hangs on one
-    // exact drive length.
-    // Builder #12, second look (probe, not a guess): at eleven seconds
-    // the car is at x=146 and the wheel hub projects to the very top
-    // edge of the frame (ndcY 0.91) with the rim top far outside it,
-    // while the FLAMINGO board sits at ndcX 0.87, half out of frame —
-    // the chase drove TOO far east.
-    // Builder #13 — NINE seconds. The drive is slower than the old
-    // comments assumed (the trace: 7 s only reaches x=52 — the car needs
-    // ~4 s to wind up to speed, so 8 s lands at x~75, not x~146 as the
-    // #12 log's 11-second probe suggested). At nine seconds the camera
-    // sits ~90 units from the wheel: the rim top is just inside the
-    // frame's top edge (~90% of the wheel shows, big), and the FLAMINGO
-    // board sits ~30° off-axis at ~23% of the frame's width — big enough
-    // to read. At ten the wheel's top is cut and the board crowds the
-    // frame's edge; at eight both landmarks read small.
-    step(game, 9, () => lanePilot(game, -20.6, 'x')); // The right-hand lane.
-    game.startMission(2); // Three stars: the VSPD is on Rico.
-    // One step so the three units actually spawn (they only appear inside
-    // police.update), then park them ahead of the player for the chase frame.
-    game.update(STEP, ZERO_AXES, 0, false);
-    // Builder #13 — THREE units, CLOSE and converging, all inside the
-    // frame: 11–20 units ahead of the hero (was 14–30, where they read as
-    // specks), staggered across the lanes and facing the player, so the
-    // chase reads in the cover — black-and-white cars with their light
-    // bars on — not just a VSPD list in the HUD.
-    placePoliceAhead(game, [
-      { dx: 11, dz: -5 }, { dx: 15, dz: 6 }, { dx: 20, dz: -1 },
-    ]);
-    // Builder #15 — A BUSY STREET (fadli: jalanan Halcyon/Costa Solis
-    // penuh mobil, #14c cuma 3 polisi + hero). Six civilian cars staged
-    // ahead of the chase on the same street, re-meshed in bright colours
-    // (the seeded cars are re-painted by replacing their mesh in the
-    // scene — the old mesh is removed, so no ghost car stays at the far
-    // end). Eastbound lane z=-21.5, same direction as Rico, rear view:
-    // yellow taxi, teal sedan, white coupe, red sports at dx 30/44/58/72.
-    // Westbound lane z=-26.5, oncoming, front view: blue sedan, orange
-    // van at dx 36/52. Spacing is checked against the police offsets
-    // above (nearest police nose 5.5 clear of the taxi) and against each
-    // other (nearest pair 3.2 clear). Positions are set through the
-    // traffic fields (axis/street/direction/along/lane), so the one final
-    // update step below places them with placeCar — the cars move ~0.25
-    // in that step and hold for the frozen frame. Total in frame: 3
-    // police + 6 civilian + hero = 10 vehicles.
-    const scene = game.renderer.scene;
-    const stagedCars = [
-      { kind: 'taxi', color: 0xffd94a, dx: 30, lane: -21.5, dir: 1 },
-      { kind: 'sedan', color: 0x2ad8c8, dx: 44, lane: -21.5, dir: 1 },
-      { kind: 'coupe', color: 0xf5f5f5, dx: 58, lane: -21.5, dir: 1 },
-      { kind: 'sports', color: 0xe83a3a, dx: 72, lane: -21.5, dir: 1 },
-      { kind: 'sedan', color: 0x2a6fd8, dx: 36, lane: -26.5, dir: -1 },
-      { kind: 'van', color: 0xff8a3d, dx: 52, lane: -26.5, dir: -1 },
-    ];
-    stagedCars.forEach((spec, i) => {
-      const car = game.traffic.cars[i];
-      if (!car) return;
-      scene.remove(car.mesh.group);
-      car.mesh = createCarMesh(spec.kind, spec.color);
-      scene.add(car.mesh.group);
-      car.kind = spec.kind;
-      car.color = spec.color;
-      car.axis = 'x';
-      car.street = -24;
-      car.direction = spec.dir;
-      car.along = game.player.x + spec.dx;
-      car.lane = spec.lane;
-      car.speed = car.cruise;
-    });
+    // Start west on the avenue: a 3-second drive puts the hero at
+    // x~15-20, the camera ~8 behind him, and the casino (56,2) 35-40
+    // ahead on the right — its west-facing CASINO sign nearly frontal,
+    // its marquee onto the avenue, the FLAMINGO board (150,-52) on the
+    // left, the wheel (178,-9) and the low sun dead ahead.
+    placeInOwnCar(game, -8, -20.6, 0);
+    clearCorridor(game);
+    // Builder #19, second look: 3 s drove the hero to x~28, the camera
+    // to x~21 — 28 from the casino, so the rooftop sign (y 33) sat at
+    // 47 degrees elevation and was cut by the frame's top edge. 2.5 s
+    // stops the hero at x~20, the camera ~36 from the sign, and the
+    // whole sign fits with the hero inside the CASINO ROW radius.
+    step(game, 2.5, () => lanePilot(game, -20.6, 'x'));
+    raiseHeat(game);
+    placePoliceAhead(game, CHASE_POLICE);
+    stageAvenueTraffic(game, AVENUE_TRAFFIC);
     // One real step, so the HUD and the minimap paint the staged positions.
     game.update(STEP, ZERO_AXES, 0, false);
-    // Builder #15 — THE HELICOPTER, IN THE FRAME (fadli: "mana heli
-    // nya"). The VSPD chopper circles 42 units around the player, and at
-    // the 9-second mark that puts it 42 units BEHIND the chase — the
-    // cover camera looks east, so #14c has no heli at all (probe: heli
-    // at (57.6, 36, -22.7), behind the camera). After the last update it
-    // is parked in the sky ahead of the chase instead: 48 east, 18 to
-    // the north (left) side, 24 high — upper-left of the frame like
-    // Halcyon's chopper, rotor frozen mid-spin, searchlight cone down.
-    // Height 24 (was 30): at 30 the tail boom was cut by the frame's top
-    // edge; at 24 the whole chopper sits inside with headroom. The shot
-    // is frozen after staging, so no update ever moves it back.
-    const heli = game.city.helicopter;
-    if (heli) {
-      heli.visible = true;
-      heli.position.set(game.player.x + 48, 24, game.player.z - 18);
-      heli.rotation.y = -0.25;
-      game.city.heliRotor.rotation.y = 0.7;
-      game.city.heliTailRotor.rotation.x = 1.1;
-    }
-    // The staged frame is a chase, not a wreck: full health for the photo.
-    game.player.health = 100;
-    game.hud.setHealth(100);
-    // Builder #13 — pin the light bars ON (flash = 1, red side lit) and
-    // re-sync every unit, so the bars read the same in every capture:
-    // the flash phase is wall-clock-ish (flashTime % 0.7) and would
-    // otherwise flip red/blue between runs.
-    for (const u of game.police.units) {
-      u.car.flash = 1;
-      syncCarMesh(u.mesh, u.car, 0);
-    }
-    // Builder #13 — the Halcyon cover framing: low, close, off-axis, so
-    // the pink hero car fills the bottom of the frame in three-quarter
-    // rear view. Frozen shot mode never calls updateCamera again, so this
-    // pose holds until the capture.
+    // The helicopter, upper-left of the frame like the winners' choppers.
+    stageHeli(game, 46, 25, -20);
+    stageCoverHud(game);
+    pinLightBars(game);
     game.renderer.setCoverCamera(game.player);
-    // Builder #13 — NO pinned DRIFT feedback in the cover: the big
-    // centre text sat on the ferris wheel's lower half (the wheel now
-    // fills the frame's centre), so the photo carries the chase, the
-    // wheel and the board clean. The feedback system itself is untouched
-    // — it still pops during real play.
     return { screen: 'play' };
   }
-  // Builder #18 — CASINO CLOSE-UPS. The casino (85,-85) is hemmed in
-  // by streets 6 units off every face, so a street-level camera is
-  // either too close or behind the neighbouring tower: both close-ups
-  // are staged from open ground with a verified-clear sightline.
-  // casino-a: elevated three-quarter from the south-east, over the
-  // z=-72 street — east + south faces, marquee and pylon together.
+  // Builder #19 — CLOSE-CASINO. Rico stands on the avenue's north kerb
+  // facing the Vice Royale's marquee; the camera sits low and far west,
+  // so the west CASINO sign reads nearly frontal, the north marquee sits
+  // at the base of the north face, and Rico is in the lower frame.
+  if (name === 'close-casino') {
+    game.reset(true);
+    step(game, 0.5, null);
+    const p = game.player;
+    p.x = 56;
+    p.z = -16;
+    p.heading = Math.PI / 2;
+    p.mesh.position.set(p.x, 0, p.z);
+    step(game, 0.5, null);
+    const cam = game.renderer.camera;
+    cam.position.set(0, 7, -26);
+    cam.fov = 58;
+    cam.updateProjectionMatrix();
+    cam.lookAt(56, 13, 2);
+    game.player.health = 100;
+    game.hud.setHealth(100);
+    return { screen: 'play' };
+  }
+  // Builder #18 — CASINO CLOSE-UPS, retargeted at the moved casino
+  // (56,2). casino-a: elevated three-quarter from the south-east.
   // casino-b: elevated three-quarter from the south-west, nearly level
-  // with the sign — the big CASINO sign face-on-ish, the west face, the
-  // marquee and the entrance.
-  // (The sign faces south, so both close-ups look at it from the
-  // south side; a due-west camera would show only its edge.)
+  // with the west-facing sign.
   if (name === 'casino-a' || name === 'casino-b') {
     game.reset(true);
-    // Half a second of real updates so the HUD and the minimap paint
-    // (they only repaint inside game.update); the camera pose below is
-    // set after, so the steps never move it.
     step(game, 0.5, null);
     const cam = game.renderer.camera;
     if (name === 'casino-a') {
-      cam.position.set(118, 30, -52);
+      cam.position.set(96, 30, -34);
       cam.fov = 58;
       cam.updateProjectionMatrix();
-      cam.lookAt(85, 20, -85);
+      cam.lookAt(56, 20, 2);
     } else {
-      // Builder #18, second look: the first b camera (55,8,-60) was too
-      // low — from below, the crown's top edge hid the sign and only "CA"
-      // peeked out. This one is higher and more southerly, nearly level
-      // with the sign, so the whole word clears the crown.
-      cam.position.set(62, 24, -38);
+      cam.position.set(24, 22, 26);
       cam.fov = 58;
       cam.updateProjectionMatrix();
-      cam.lookAt(85, 28, -85);
+      cam.lookAt(56, 26, 2);
     }
     game.player.health = 100;
     game.hud.setHealth(100);
+    return { screen: 'play' };
+  }
+  // Builder #19 — MINIMAP-ZOOM. The same causeway chase as the cover,
+  // but the whole bottom-left HUD column is scaled up, so the round
+  // minimap — N tick, ring boulevard, casino star, player arrow,
+  // district label — fills a big readable patch of the frame.
+  if (name === 'minimap-zoom') {
+    document.documentElement.classList.add('minimap-zoom');
+    game.reset(true);
+    placeInOwnCar(game, -8, -20.6, 0);
+    clearCorridor(game);
+    step(game, 2.5, () => lanePilot(game, -20.6, 'x'));
+    raiseHeat(game);
+    placePoliceAhead(game, CHASE_POLICE);
+    stageAvenueTraffic(game, AVENUE_TRAFFIC.slice(0, 4));
+    game.update(STEP, ZERO_AXES, 0, false);
+    stageHeli(game, 46, 25, -20);
+    stageCoverHud(game);
+    pinLightBars(game);
+    game.hud.clearMessages();
+    game.renderer.setCoverCamera(game.player);
+    return { screen: 'play' };
+  }
+  // Builder #19 — TRAFFIC-HELI. The avenue at its busiest: eight
+  // civilian cars ahead, seven police units, and the chopper LOW and
+  // close overhead with its spotlight, over a pinned NEAR MISS popup.
+  if (name === 'traffic-heli') {
+    game.reset(true);
+    placeInOwnCar(game, -30, -20.6, 0);
+    clearCorridor(game);
+    step(game, 4, () => lanePilot(game, -20.6, 'x'));
+    raiseHeat(game);
+    placePoliceAhead(game, CHASE_POLICE);
+    stageAvenueTraffic(game, [
+      ...AVENUE_TRAFFIC,
+      { kind: 'taxi', color: 0xffd94a, dx: 74, lane: -21.5, dir: 1 },
+    ]);
+    game.update(STEP, ZERO_AXES, 0, false);
+    stageHeli(game, 32, 17, -16);
+    stageCoverHud(game);
+    pinLightBars(game);
+    game.hud.showFeedback('NEAR MISS', '+$250', true);
+    game.renderer.setCoverCamera(game.player);
     return { screen: 'play' };
   }
   // Builder #18 — the Hilman-style gameplay shots: each one plays the real
@@ -296,8 +317,8 @@ export function stageShot(name, game) {
   if (name === 'carjack') {
     game.reset(true);
     // Rico spawns six units from his own pink convertible at the Hideout —
-    // inside steal range — so the hint reads "[E] Get in Solstice
-    // Convertible" and the car sits ahead in the frame.
+    // inside steal range — so the hint reads "[E] Get in Solstice GT"
+    // and the car sits ahead in the frame.
     step(game, 0.5, null);
     game.player.health = 100;
     game.hud.setHealth(100);
@@ -351,9 +372,13 @@ export function stageShot(name, game) {
       game.player.mesh.position.set(spot.x, 0, spot.z);
       step(game, 0.2, null);
     }
-    // Face the casino from the third spot, so the frame shows Rico, the
-    // casino and the PACKAGES 3/10 counter together.
-    game.player.heading = Math.atan2(-85 - -72, 85 - 96);
+    // End beside the next uncollected package (120,-48), facing it: the
+    // pink package glows in frame with the FLAMINGO board just behind it,
+    // and the PACKAGES 3/10 counter stays up in the objective card.
+    game.player.x = 114;
+    game.player.z = -48;
+    game.player.heading = Math.PI / 2;
+    game.player.mesh.position.set(114, 0, -48);
     step(game, 0.5, null);
     game.player.health = 100;
     game.hud.setHealth(100);
@@ -391,12 +416,13 @@ export function stageShot(name, game) {
   }
   if (name === 'district') {
     game.reset(true);
-    // Rico stands on the z=-72 street at the casino's door, facing the neon
-    // sign — the district card fires for CASINO ROW over the landmark.
+    // Rico stands on the avenue's north kerb at the casino's door,
+    // facing the neon marquee — the district card fires for CASINO ROW
+    // over the landmark.
     const p = game.player;
-    p.x = 85;
-    p.z = -72;
-    p.heading = -Math.PI / 2;
+    p.x = 56;
+    p.z = -14;
+    p.heading = Math.PI / 2;
     p.mesh.position.set(p.x, 0, p.z);
     step(game, 0.5, null);
     game.hud.showDistrict('CASINO ROW', true);
